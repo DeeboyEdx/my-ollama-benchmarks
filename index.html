@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ollama LLM Benchmarks</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="data.js"></script>
+<style>
+:root {
+  --bg:       #0d1117;
+  --surface:  #161b22;
+  --surface2: #21262d;
+  --border:   #30363d;
+  --text:     #c9d1d9;
+  --muted:    #6e7681;
+  --heading:  #f0f6fc;
+  --blue:     #388bfd;
+  --green:    #3fb950;
+  --yellow:   #e3b341;
+  --orange:   #f0883e;
+  --red:      #f85149;
+  --purple:   #a371f7;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.5; }
+
+/* ── Header ─────────────────────────────────────────────────── */
+header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+header h1 { font-size: 21px; font-weight: 700; color: var(--heading); display: flex; align-items: center; gap: 8px; }
+#meta-bar { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); align-items: center; }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+.badge-blue  { background: rgba(56,139,253,.15); color: var(--blue); }
+.badge-green { background: rgba(63,185,80,.15);  color: var(--green); }
+
+/* ── Layout ─────────────────────────────────────────────────── */
+main { max-width: 1400px; margin: 0 auto; padding: 24px 32px; }
+section { margin-bottom: 40px; }
+h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+/* ── Quick stats ─────────────────────────────────────────────── */
+.stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 32px; }
+.stat-card  { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.stat-value { font-size: 22px; font-weight: 700; color: var(--heading); margin-top: 4px; }
+.stat-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Filter bar ──────────────────────────────────────────────── */
+.filter-bar  { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.filter-label { color: var(--muted); font-size: 13px; }
+.filter-btn  { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all .15s; }
+.filter-btn:hover  { border-color: var(--blue); }
+.filter-btn.active { background: rgba(56,139,253,.12); border-color: var(--blue); color: var(--blue); }
+
+/* ── Table ───────────────────────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { background: var(--surface); padding: 9px 12px; text-align: left; font-weight: 600; color: var(--muted); white-space: nowrap; cursor: pointer; user-select: none; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 2; }
+thead th:hover { color: var(--text); }
+thead th[data-sort="asc"]::after  { content: ' ↑'; }
+thead th[data-sort="desc"]::after { content: ' ↓'; }
+tbody tr { border-bottom: 1px solid var(--border); }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--surface); }
+td { padding: 9px 12px; vertical-align: middle; }
+.model-name { font-family: 'Courier New', monospace; font-weight: 600; color: var(--heading); white-space: nowrap; }
+
+/* ── RAM bar ─────────────────────────────────────────────────── */
+.ram-wrap  { display: flex; align-items: center; gap: 8px; min-width: 140px; }
+.ram-track { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+.ram-fill  { height: 100%; border-radius: 3px; }
+.ram-val   { font-size: 12px; white-space: nowrap; min-width: 46px; text-align: right; }
+.ram-tag   { font-size: 10px; color: var(--orange); white-space: nowrap; }
+
+/* ── Grade badges ────────────────────────────────────────────── */
+.grade      { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 22px; border-radius: 4px; font-weight: 700; font-size: 12px; }
+.grade.tip  { cursor: help; }
+.g-A { background: #238636; color: #3fb950; }
+.g-B { background: #9e6a03; color: #e3b341; }
+.g-C { background: #bd561d; color: #f0883e; }
+.g-D { background: #b62324; color: #f85149; }
+.g-F { background: #21262d; color: #8b949e; }
+
+/* ── Feasibility ─────────────────────────────────────────────── */
+.feas      { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+.feas-fit  { background: rgba(63,185,80,.12); color: var(--green); }
+.feas-over { background: rgba(240,136,62,.12); color: var(--orange); }
+
+/* ── Recommendations ─────────────────────────────────────────── */
+.rec-row  { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.rec-card { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--blue); border-radius: 8px; padding: 20px; }
+.rec-icon   { font-size: 22px; margin-bottom: 6px; }
+.rec-label  { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.rec-model  { font-size: 17px; font-weight: 700; color: var(--heading); font-family: monospace; margin: 4px 0; }
+.rec-detail { color: var(--muted); font-size: 13px; }
+
+/* ── Chart tabs ──────────────────────────────────────────────── */
+.chart-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.ctab { padding: 8px 16px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; font-size: 13px; transition: all .15s; margin-bottom: -1px; }
+.ctab:hover  { color: var(--text); }
+.ctab.active { color: var(--blue); border-color: var(--blue); font-weight: 500; }
+.cpanel { display: none; }
+.cpanel.active { display: block; }
+.chart-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; height: 380px; }
+
+/* ── VRAM notes ──────────────────────────────────────────────── */
+.callout      { border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; font-size: 13px; }
+.callout-warn { background: rgba(240,136,62,.08); border: 1px solid rgba(240,136,62,.3); }
+.vram-list    { display: flex; flex-direction: column; gap: 8px; }
+.vram-row     { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+
+/* ── Accordions ──────────────────────────────────────────────── */
+.acc     { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
+.acc-hdr { background: var(--surface); padding: 13px 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 500; color: var(--heading); user-select: none; }
+.acc-hdr:hover { background: var(--surface2); }
+.acc-arrow { transition: transform .2s; color: var(--muted); }
+.acc-body  { display: none; padding: 16px; border-top: 1px solid var(--border); }
+
+/* ── Reference tables ────────────────────────────────────────── */
+.info-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.info-tbl th, .info-tbl td { padding: 9px 12px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+.info-tbl th { background: var(--surface2); color: var(--muted); font-weight: 600; }
+
+/* ── Misc ────────────────────────────────────────────────────── */
+footer { text-align: center; padding: 20px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); margin-top: 20px; }
+footer a { color: var(--blue); text-decoration: none; }
+code { font-family: monospace; background: var(--surface2); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+
+/* ── Floating tooltip ────────────────────────────────────────── */
+#tip { position: fixed; display: none; max-width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 11px; font-size: 12px; line-height: 1.5; color: var(--text); z-index: 9999; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,.55); word-wrap: break-word; }
+
+@media (max-width: 768px) {
+  main   { padding: 16px; }
+  header { padding: 16px; }
+  #meta-bar { gap: 8px; }
+}
+</style>
+</head>
+<body>
+
+<div id="tip"></div>
+
+<header>
+  <h1>🦙 Ollama LLM Benchmarks</h1>
+  <div id="meta-bar"></div>
+</header>
+
+<main>
+  <div class="stats-row" id="stats-row"></div>
+
+  <section>
+    <h2>Model Comparison</h2>
+    <div class="filter-bar">
+      <span class="filter-label">Show:</span>
+      <button class="filter-btn active" data-f="all">All models</button>
+      <button class="filter-btn" data-f="fit">✅ Fits in VRAM</button>
+      <button class="filter-btn" data-f="over">⚠️ CPU Offload</button>
+    </div>
+    <div class="tbl-wrap">
+      <table id="tbl">
+        <thead><tr id="tbl-head"></tr></thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="sec-recs">
+    <h2>Recommendations</h2>
+    <div class="rec-row" id="rec-row"></div>
+  </section>
+
+  <section>
+    <h2>Performance Charts</h2>
+    <div class="chart-tabs" id="chart-tabs"></div>
+    <div id="chart-panels"></div>
+  </section>
+
+  <section id="sec-vram" style="display:none">
+    <h2>⚠️ VRAM Notes</h2>
+    <div id="vram-body"></div>
+  </section>
+
+  <section>
+    <h2>Reference</h2>
+    <div id="accs"></div>
+  </section>
+</main>
+
+<footer><div id="footer-txt"></div></footer>
+
+<script>
+// ── Safety guard ──────────────────────────────────────────────────────────────
+if (typeof BENCHMARK_DATA === 'undefined') {
+  document.body.innerHTML = '<div style="padding:40px;color:#f85149;font-family:monospace;font-size:14px">⚠️ data.js not found. Run <code>Publish-Website.ps1</code> to generate it, then serve from a local web server or push to GitHub Pages.</div>';
+  throw new Error('BENCHMARK_DATA not defined');
+}
+
+const D = BENCHMARK_DATA;
+const { meta, tasks, models, recommendations, vramNotes } = D;
+const V = meta.vramGB;
+
+// ── Floating tooltip ──────────────────────────────────────────────────────────
+const tipEl = document.getElementById('tip');
+function showTip(text, e) { tipEl.textContent = text; tipEl.style.display = 'block'; positionTip(e); }
+function moveTip(e)        { positionTip(e); }
+function hideTip()         { tipEl.style.display = 'none'; }
+function positionTip(e) {
+  const m = 14, tw = tipEl.offsetWidth, th = tipEl.offsetHeight;
+  let x = e.clientX + m, y = e.clientY - th - m;
+  if (x + tw > window.innerWidth  - 4) x = e.clientX - tw - m;
+  if (y < 4)                           y = e.clientY + m;
+  tipEl.style.left = x + 'px';
+  tipEl.style.top  = y + 'px';
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function gradeScore(g) { return { A:5, B:4, C:3, D:2, F:0 }[g] ?? null; }
+function mkEl(tag, props = {}) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if      (k === 'cls')   e.className = v;
+    else if (k === 'txt')   e.textContent = v;
+    else if (k === 'style') Object.assign(e.style, v);
+    else                    e[k] = v;
+  }
+  return e;
+}
+
+// ── Chart.js global defaults ──────────────────────────────────────────────────
+Chart.defaults.color       = '#6e7681';
+Chart.defaults.borderColor = '#30363d';
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+Chart.defaults.font.size   = 12;
+
+// ── Header ────────────────────────────────────────────────────────────────────
+const metaBar = document.getElementById('meta-bar');
+const gpuBadge = mkEl('span', { cls: 'badge badge-blue' });
+gpuBadge.textContent = `🖥 ${meta.gpuName} · ${V} GB VRAM`;
+metaBar.append(gpuBadge, mkEl('span', { txt: `Updated ${meta.lastUpdated}` }), mkEl('span', { txt: `${meta.benchmarkFiles.length} benchmark run(s)` }));
+
+document.getElementById('footer-txt').innerHTML = `Generated from <a href="https://github.com/DeeboyEdx/z440-ollama-benchmarking" target="_blank">DeeboyEdx/z440-ollama-benchmarking</a> · Updated ${meta.lastUpdated}`;
+
+// ── Quick stats ───────────────────────────────────────────────────────────────
+const fitCount = models.filter(m => m.fitsInVram).length;
+const fastest  = [...models].filter(m => m.genSpeedTps != null).sort((a,b) => b.genSpeedTps - a.genSpeedTps)[0];
+const topQual  = [...models].filter(m => m.avgQualityScore != null).sort((a,b) => b.avgQualityScore - a.avgQualityScore)[0];
+
+const statsRow = document.getElementById('stats-row');
+[
+  { label: 'Models Tested', value: models.length,                               sub: `${fitCount} fit in VRAM` },
+  { label: 'VRAM Limit',    value: `${V} GB`,                                   sub: meta.gpuName },
+  { label: 'Fastest Gen',   value: fastest  ? `${fastest.genSpeedTps} T/s` : '—', sub: fastest?.name  ?? '' },
+  { label: 'Best Quality',  value: topQual  ? `${topQual.avgQualityScore}/5` : '—', sub: topQual?.name ?? '' },
+].forEach(s => {
+  const card = mkEl('div', { cls: 'stat-card' });
+  card.append(
+    mkEl('div', { cls: 'stat-label', txt: s.label }),
+    mkEl('div', { cls: 'stat-value', txt: String(s.value) }),
+    mkEl('div', { cls: 'stat-sub',   txt: s.sub }),
+  );
+  statsRow.appendChild(card);
+});
+
+// ── Model table ───────────────────────────────────────────────────────────────
+let sortKey = 'avgTtoS', sortDir = 1, filterMode = 'all';
+
+const taskColors = {
+  Smoke:       '#388bfd',
+  Coding:      '#a371f7',
+  Grammar:     '#3fb950',
+  Logic:       '#e3b341',
+  'Proj Orch': '#f0883e',
+};
+
+function ramBarTd(m) {
+  const td = mkEl('td');
+  if (m.ramMaxGB == null) { td.textContent = '—'; td.style.color = 'var(--muted)'; return td; }
+  const pct   = Math.min((m.ramMaxGB / V) * 100, 100);
+  const over  = m.ramMaxGB > V;
+  const color = over ? 'var(--orange)' : 'var(--green)';
+  const wrap  = mkEl('div', { cls: 'ram-wrap' });
+  const track = mkEl('div', { cls: 'ram-track' });
+  const fill  = mkEl('div', { cls: 'ram-fill', style: { width: `${pct}%`, background: color } });
+  const val   = mkEl('span', { cls: 'ram-val', txt: `${m.ramMaxGB} GB`, style: { color } });
+  track.appendChild(fill);
+  wrap.append(track, val);
+  if (over) wrap.appendChild(mkEl('span', { cls: 'ram-tag', txt: `+${(m.ramMaxGB - V).toFixed(1)}` }));
+  td.appendChild(wrap);
+  return td;
+}
+
+function gradeTd(m, task) {
+  const td = mkEl('td', { style: { textAlign: 'center' } });
+  const q   = m.quality[task];
+  if (!q?.grade) { td.textContent = '—'; td.style.color = 'var(--muted)'; return td; }
+  const badge = mkEl('span', { cls: `grade g-${q.grade}`, txt: q.grade });
+  if (q.notes) {
+    badge.classList.add('tip');
+    badge.addEventListener('mouseenter', e => showTip(q.notes, e));
+    badge.addEventListener('mousemove',  moveTip);
+    badge.addEventListener('mouseleave', hideTip);
+  }
+  td.appendChild(badge);
+  return td;
+}
+
+const cols = [
+  { key: 'name',        label: 'Model',           sv: m => m.name ?? '',
+    td: m => { const td = mkEl('td'); td.appendChild(mkEl('span', { cls: 'model-name', txt: m.name })); return td; } },
+  { key: 'params',      label: 'Params',           sv: m => m.params ?? '',
+    td: m => mkEl('td', { txt: m.params ?? '—' }) },
+  { key: 'contextK',    label: 'Context',          sv: m => parseFloat(m.contextK) || 0,
+    td: m => mkEl('td', { txt: m.contextK ?? '—' }) },
+  { key: 'sizeGB',      label: 'Size',             sv: m => m.sizeGB ?? 0,
+    td: m => mkEl('td', { txt: m.sizeGB != null ? `${m.sizeGB} GB` : '—' }) },
+  { key: 'ramMaxGB',    label: 'RAM Max',          sv: m => m.ramMaxGB ?? 0,    td: ramBarTd },
+  { key: 'genSpeedTps', label: 'Gen Speed (T/s)',  sv: m => m.genSpeedTps ?? 0,
+    td: m => mkEl('td', { txt: m.genSpeedTps != null ? `${m.genSpeedTps} T/s` : '—' }) },
+  { key: 'avgTtoS',     label: 'Avg TTO (s)',      sv: m => m.avgTtoS ?? 9999,
+    td: m => mkEl('td', { txt: m.avgTtoS != null ? `${m.avgTtoS}s` : '—' }) },
+  ...tasks.map(t => ({
+    key: `q_${t}`, label: t,
+    sv:  m => gradeScore(m.quality[t]?.grade) ?? -1,
+    td:  m => gradeTd(m, t),
+  })),
+  { key: 'fitsInVram', label: 'VRAM', sv: m => m.fitsInVram ? 1 : 0,
+    td: m => { const td = mkEl('td'); td.appendChild(mkEl('span', { cls: m.fitsInVram ? 'feas feas-fit' : 'feas feas-over', txt: m.fitsInVram ? '✅ Fit' : '⚠️ Offload' })); return td; } },
+];
+
+function buildHeader() {
+  const tr = document.getElementById('tbl-head');
+  tr.innerHTML = '';
+  cols.forEach(col => {
+    const th = mkEl('th', { txt: col.label });
+    if (col.key === sortKey) th.dataset.sort = sortDir === 1 ? 'asc' : 'desc';
+    th.addEventListener('click', () => {
+      if (sortKey === col.key) sortDir *= -1; else { sortKey = col.key; sortDir = 1; }
+      buildHeader(); buildBody();
+    });
+    tr.appendChild(th);
+  });
+}
+
+function buildBody() {
+  let rows = [...models];
+  if (filterMode === 'fit')  rows = rows.filter(m =>  m.fitsInVram);
+  if (filterMode === 'over') rows = rows.filter(m => !m.fitsInVram);
+  const col = cols.find(c => c.key === sortKey);
+  rows.sort((a, b) => { const av = col.sv(a), bv = col.sv(b); if (av < bv) return -sortDir; if (av > bv) return sortDir; return 0; });
+  const tbody = document.getElementById('tbl-body');
+  tbody.innerHTML = '';
+  rows.forEach(m => { const tr = mkEl('tr'); cols.forEach(c => tr.appendChild(c.td(m))); tbody.appendChild(tr); });
+}
+
+document.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('click', () => {
+  filterMode = btn.dataset.f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  buildBody();
+}));
+
+buildHeader(); buildBody();
+
+// ── Recommendations ───────────────────────────────────────────────────────────
+const recRow = document.getElementById('rec-row');
+if (recommendations?.length) {
+  recommendations.forEach(r => {
+    const card = mkEl('div', { cls: 'rec-card' });
+    card.append(
+      mkEl('div', { cls: 'rec-icon',   txt: r.icon }),
+      mkEl('div', { cls: 'rec-label',  txt: r.label }),
+      mkEl('div', { cls: 'rec-model',  txt: r.model }),
+      mkEl('div', { cls: 'rec-detail', txt: r.detail }),
+    );
+    recRow.appendChild(card);
+  });
+} else {
+  document.getElementById('sec-recs').style.display = 'none';
+}
+
+// ── Charts ────────────────────────────────────────────────────────────────────
+const chartDefs = [
+  { id: 'tto',   label: 'Avg TTO by Task' },
+  { id: 'speed', label: 'Generation Speed' },
+  { id: 'ram',   label: 'RAM Usage' },
+];
+const tabsEl   = document.getElementById('chart-tabs');
+const panelsEl = document.getElementById('chart-panels');
+chartDefs.forEach((c, i) => {
+  const tab = mkEl('div', { cls: i === 0 ? 'ctab active' : 'ctab', txt: c.label });
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.ctab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.cpanel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(`cp-${c.id}`).classList.add('active');
+  });
+  tabsEl.appendChild(tab);
+  const panel = mkEl('div', { cls: i === 0 ? 'cpanel active' : 'cpanel' });
+  panel.id = `cp-${c.id}`;
+  const box = mkEl('div', { cls: 'chart-box' });
+  const canvas = mkEl('canvas'); canvas.id = `cv-${c.id}`;
+  box.appendChild(canvas); panel.appendChild(box); panelsEl.appendChild(panel);
+});
+
+// TTO per task — grouped bar chart
+{
+  new Chart(document.getElementById('cv-tto'), {
+    type: 'bar',
+    data: {
+      labels: models.map(m => m.name),
+      datasets: tasks.map(t => ({
+        label:           t,
+        data:            models.map(m => m.ttoPerTask?.[t] ?? null),
+        backgroundColor: (taskColors[t] ?? '#888') + 'aa',
+        borderColor:      taskColors[t] ?? '#888',
+        borderWidth: 1, borderRadius: 3,
+      })),
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: { callbacks: { label: ctx => ctx.parsed.y != null ? `${ctx.dataset.label}: ${ctx.parsed.y}s` : `${ctx.dataset.label}: —` } },
+      },
+      scales: {
+        x: { ticks: { maxRotation: 30 } },
+        y: { beginAtZero: true, title: { display: true, text: 'Seconds (lower is better)' } },
+      },
+    },
+  });
+}
+
+// Gen Speed — horizontal bar
+{
+  const sorted = [...models].filter(m => m.genSpeedTps != null).sort((a, b) => b.genSpeedTps - a.genSpeedTps);
+  new Chart(document.getElementById('cv-speed'), {
+    type: 'bar',
+    data: {
+      labels: sorted.map(m => m.name),
+      datasets: [{ label: 'T/s', data: sorted.map(m => m.genSpeedTps),
+        backgroundColor: sorted.map(m => (m.fitsInVram ? '#388bfd' : '#f0883e') + 'aa'),
+        borderColor:     sorted.map(m =>  m.fitsInVram ? '#388bfd' : '#f0883e'),
+        borderWidth: 1, borderRadius: 3,
+      }],
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.parsed.x} T/s` } } },
+      scales: { x: { beginAtZero: true, title: { display: true, text: 'Tokens / second (higher is better)' } } },
+    },
+  });
+}
+
+// RAM usage — horizontal bar with VRAM limit line
+{
+  const sorted = [...models].filter(m => m.ramMaxGB != null).sort((a, b) => b.ramMaxGB - a.ramMaxGB);
+  const vramLinePlugin = {
+    id: 'vramLine',
+    afterDraw(chart) {
+      const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+      const xp = x.getPixelForValue(V);
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(xp, top); ctx.lineTo(xp, bottom);
+      ctx.lineWidth = 2; ctx.strokeStyle = '#f85149'; ctx.setLineDash([5, 3]); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#f85149'; ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(`VRAM limit: ${V} GB`, xp + 5, top + 14);
+      ctx.restore();
+    },
+  };
+  new Chart(document.getElementById('cv-ram'), {
+    type: 'bar',
+    data: {
+      labels: sorted.map(m => m.name),
+      datasets: [{ label: 'RAM (GB)', data: sorted.map(m => m.ramMaxGB),
+        backgroundColor: sorted.map(m => (m.ramMaxGB > V ? '#f0883e' : '#3fb950') + 'aa'),
+        borderColor:     sorted.map(m =>  m.ramMaxGB > V ? '#f0883e' : '#3fb950'),
+        borderWidth: 1, borderRadius: 3,
+      }],
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.parsed.x} GB` } } },
+      scales: { x: { beginAtZero: true, title: { display: true, text: 'GB RAM (green = fits in VRAM, orange = CPU offload)' } } },
+    },
+    plugins: [vramLinePlugin],
+  });
+}
+
+// ── VRAM Notes ────────────────────────────────────────────────────────────────
+if (vramNotes?.length) {
+  document.getElementById('sec-vram').style.display = '';
+  const body = document.getElementById('vram-body');
+  const callout = mkEl('div', { cls: 'callout callout-warn' });
+  callout.textContent = `The following models exceed the ${V} GB VRAM limit and will partially offload to system RAM, significantly increasing TTO.`;
+  body.appendChild(callout);
+  const list = mkEl('div', { cls: 'vram-list' });
+  vramNotes.forEach(n => {
+    const row  = mkEl('div', { cls: 'vram-row' });
+    const feas = mkEl('span', { cls: 'feas feas-over', txt: '⚠️ Offload' });
+    const code = mkEl('code', { txt: n.model });
+    const info = mkEl('span', { txt: `${n.ramGB} GB · ${n.overGB} GB over limit`, style: { color: 'var(--muted)' } });
+    row.append(feas, code, info);
+    list.appendChild(row);
+  });
+  body.appendChild(list);
+}
+
+// ── Accordions ────────────────────────────────────────────────────────────────
+function makeAcc(title, bodyFn) {
+  const acc  = mkEl('div', { cls: 'acc' });
+  const hdr  = mkEl('div', { cls: 'acc-hdr' });
+  hdr.append(mkEl('span', { txt: title }), mkEl('span', { cls: 'acc-arrow', txt: '▼' }));
+  const body = mkEl('div', { cls: 'acc-body' });
+  bodyFn(body);
+  hdr.addEventListener('click', () => {
+    const open = body.style.display === 'block';
+    body.style.display = open ? 'none' : 'block';
+    hdr.querySelector('.acc-arrow').style.transform = open ? '' : 'rotate(180deg)';
+  });
+  acc.append(hdr, body);
+  return acc;
+}
+
+const accsEl = document.getElementById('accs');
+
+// Metric Glossary
+accsEl.appendChild(makeAcc('Metric Glossary', body => {
+  const note = mkEl('p', { style: { marginBottom: '12px', color: 'var(--muted)', fontSize: '13px' } });
+  note.innerHTML = '💡 <strong>Why is phi3:mini not the fastest despite being the smallest?</strong> Ollama defaults to its full 128K context, allocating a huge KV cache that spills into system RAM and runs on CPU.';
+  body.appendChild(note);
+  const tbl = mkEl('table', { cls: 'info-tbl' });
+  tbl.innerHTML = '<thead><tr><th>Metric</th><th>What it measures</th><th>How to read it</th></tr></thead>';
+  const tb = mkEl('tbody');
+  [
+    ['Gen Speed (T/s)', 'Tokens generated per second during a sustained generation run (LarHope). Reflects raw GPU throughput.', 'Higher is faster. A 7B model at 70 T/s streams text noticeably faster than a 14B at 15 T/s.'],
+    ['Avg TTO (s)', 'Time To Output — wall-clock seconds from sending the prompt until the model finishes. Averaged across all benchmark runs and all 5 tasks.', 'Lower is faster. Includes thinking time — chain-of-thought models (e.g. deepseek-r1) reason silently before outputting, so their TTO is high even if Gen Speed is decent.'],
+    ['Context', 'Maximum token window the model can hold in memory (prompt + response combined). Larger context requires more RAM for the KV cache.', 'Bigger ≠ faster — a 128K context model allocates a much larger KV cache than a 32K model, hurting throughput despite a smaller weight file. For typical chat/coding, 32K is more than sufficient.'],
+    ['RAM Max', 'Observed total memory sampled from ollama ps during benchmark runs (avg across all prompts). Falls back to formula estimate (weights + full KV cache + 0.5 GB overhead at max context) when observed data is unavailable.', 'Values over the VRAM limit mean KV cache spills to system RAM, causing CPU offload and significantly higher TTO.'],
+  ].forEach(([m, w, h]) => {
+    const tr = mkEl('tr');
+    const tdm = mkEl('td'); tdm.innerHTML = `<strong>${m}</strong>`;
+    const tdw = mkEl('td', { txt: w });
+    const tdh = mkEl('td', { txt: h });
+    tr.append(tdm, tdw, tdh);
+    tb.appendChild(tr);
+  });
+  tbl.appendChild(tb);
+  body.appendChild(tbl);
+}));
+
+// Quality Scoring Reference
+accsEl.appendChild(makeAcc('Quality Scoring Reference', body => {
+  const intro = mkEl('p', { style: { marginBottom: '12px', color: 'var(--muted)', fontSize: '13px' }, txt: 'Grades assigned by AI review of model responses. Scale: A (excellent) → B → C → D → F (wrong/failed).' });
+  body.appendChild(intro);
+  const tbl = mkEl('table', { cls: 'info-tbl' });
+  tbl.innerHTML = `<thead><tr><th>Task</th><th>What it tests</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>Smoke</td><td>Basic responsiveness and instruction-following</td><td>—</td></tr>
+    <tr><td>Coding</td><td>Python function generation</td><td>Correctness, style, instruction adherence</td></tr>
+    <tr><td>Grammar</td><td>Text correction</td><td>Accuracy and conciseness</td></tr>
+    <tr><td>Logic</td><td>Probability puzzle — min draws for 2 same colour from 5R/4B/3G</td><td>Correct answer = <strong>4</strong></td></tr>
+    <tr><td>Proj Orch</td><td>High-level planning task</td><td>Structure, completeness, actionability</td></tr>
+  </tbody>`;
+  body.appendChild(tbl);
+}));
+
+// Data Sources
+accsEl.appendChild(makeAcc('Data Sources', body => {
+  const tbl = mkEl('table', { cls: 'info-tbl' });
+  tbl.innerHTML = `<thead><tr><th>Column</th><th>Source</th></tr></thead>
+  <tbody>
+    <tr><td>Params, Context</td><td><code>ollama show &lt;model&gt;</code></td></tr>
+    <tr><td>Size</td><td><code>ollama list</code></td></tr>
+    <tr><td>Gen Speed (T/s)</td><td>LarHope benchmark · <code>benchmarks/larhope_run_*.txt</code> (latest)</td></tr>
+    <tr><td>Avg TTO (s)</td><td>TTO benchmark · all <code>benchmarks/Benchmark*.yaml</code> files averaged</td></tr>
+    <tr><td>RAM Max</td><td><code>ollama ps</code> sampled during benchmark runs · falls back to formula estimate</td></tr>
+    <tr><td>Quality grades</td><td>AI review of benchmark responses · A/B/C/D/F scale</td></tr>
+  </tbody>`;
+  body.appendChild(tbl);
+}));
+</script>
+</body>
+</html>
