@@ -2,7 +2,7 @@
 
 Interactive benchmark results for locally-running Ollama models.
 
-👉 **[View the live dashboard](https://deeboyedx.github.io/ollama-benchmark-site/)**
+👉 **[View the live dashboard](https://deeboyedx.github.io/my-ollama-benchmarks/)**
 
 ## About
 

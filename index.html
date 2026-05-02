@@ -311,13 +311,13 @@ const cols = [
     td: m => mkEl('td', { txt: m.params ?? '—' }) },
   { key: 'contextK',    label: 'Context',          sv: m => parseFloat(m.contextK) || 0,
     td: m => mkEl('td', { txt: m.contextK ?? '—' }) },
-  { key: 'sizeGB',      label: 'Size',             sv: m => m.sizeGB ?? 0,
-    td: m => mkEl('td', { txt: m.sizeGB != null ? `${m.sizeGB} GB` : '—' }) },
+  { key: 'sizeGB',      label: 'Size (GB)',         sv: m => m.sizeGB ?? 0,
+    td: m => mkEl('td', { txt: m.sizeGB != null ? `${m.sizeGB}` : '—' }) },
   { key: 'ramMaxGB',    label: 'RAM Max',          sv: m => m.ramMaxGB ?? 0,    td: ramBarTd },
   { key: 'genSpeedTps', label: 'Gen Speed (T/s)',  sv: m => m.genSpeedTps ?? 0,
-    td: m => mkEl('td', { txt: m.genSpeedTps != null ? `${m.genSpeedTps} T/s` : '—' }) },
+    td: m => mkEl('td', { txt: m.genSpeedTps != null ? `${m.genSpeedTps}` : '—' }) },
   { key: 'avgTtoS',     label: 'Avg TTO (s)',      sv: m => m.avgTtoS ?? 9999,
-    td: m => mkEl('td', { txt: m.avgTtoS != null ? `${m.avgTtoS}s` : '—' }) },
+    td: m => mkEl('td', { txt: m.avgTtoS != null ? `${m.avgTtoS}` : '—' }) },
   ...tasks.map(t => ({
     key: `q_${t}`, label: t,
     sv:  m => gradeScore(m.quality[t]?.grade) ?? -1,
@@ -571,7 +571,7 @@ accsEl.appendChild(makeAcc('Data Sources', body => {
   tbl.innerHTML = `<thead><tr><th>Column</th><th>Source</th></tr></thead>
   <tbody>
     <tr><td>Params, Context</td><td><code>ollama show &lt;model&gt;</code></td></tr>
-    <tr><td>Size</td><td><code>ollama list</code></td></tr>
+    <tr><td>Size (GB)</td><td><code>ollama list</code></td></tr>
     <tr><td>Gen Speed (T/s)</td><td>LarHope benchmark · <code>benchmarks/larhope_run_*.txt</code> (latest)</td></tr>
     <tr><td>Avg TTO (s)</td><td>TTO benchmark · all <code>benchmarks/Benchmark*.yaml</code> files averaged</td></tr>
     <tr><td>RAM Max</td><td><code>ollama ps</code> sampled during benchmark runs · falls back to formula estimate</td></tr>
