@@ -307,7 +307,7 @@ function gradeTd(m, task) {
 const cols = [
   { key: 'name',        label: 'Model',           sv: m => m.name ?? '',
     td: m => { const td = mkEl('td'); td.appendChild(mkEl('span', { cls: 'model-name', txt: m.name })); return td; } },
-  { key: 'params',      label: 'Params',           sv: m => m.params ?? '',
+  { key: 'params',      label: 'Params',           sv: m => { const v = parseFloat(m.params); return isNaN(v) ? 0 : v; },
     td: m => mkEl('td', { txt: m.params ?? '—' }) },
   { key: 'contextK',    label: 'Context',          sv: m => parseFloat(m.contextK) || 0,
     td: m => mkEl('td', { txt: m.contextK ?? '—' }) },
