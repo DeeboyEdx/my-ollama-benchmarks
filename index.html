@@ -125,7 +125,32 @@ footer { text-align: center; padding: 20px; color: var(--muted); font-size: 12px
 footer a { color: var(--blue); text-decoration: none; }
 code { font-family: monospace; background: var(--surface2); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
 
-/* ── Floating tooltip ────────────────────────────────────────── */
+/* ── Page tabs (top-level) ───────────────────────────────────── */
+.page-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 24px; }
+.ptab { background: none; border: none; padding: 10px 20px; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s; }
+.ptab:hover  { color: var(--text); }
+.ptab.active { color: var(--accent); border-color: var(--accent); }
+
+/* ── Grader comparison ───────────────────────────────────────── */
+.gc-section { display: flex; flex-direction: column; gap: 24px; }
+.gc-leaderboard { width: 100%; border-collapse: collapse; font-size: 13px; }
+.gc-leaderboard th, .gc-leaderboard td { padding: 9px 14px; border: 1px solid var(--border); text-align: left; }
+.gc-leaderboard th { background: var(--surface2); color: var(--muted); font-weight: 600; cursor: pointer; user-select: none; white-space: nowrap; }
+.gc-leaderboard td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.gc-leaderboard tr:hover td { background: var(--surface2); }
+.gc-grid-wrap { overflow-x: auto; }
+.gc-grid { border-collapse: collapse; font-size: 12px; }
+.gc-grid th, .gc-grid td { border: 1px solid var(--border); padding: 4px 6px; white-space: nowrap; text-align: center; }
+.gc-grid th { background: var(--surface2); color: var(--muted); font-weight: 600; position: sticky; top: 0; z-index: 2; }
+.gc-grid th.row-hdr { text-align: left; min-width: 140px; }
+.gc-grid td.row-hdr { text-align: left; color: var(--muted); font-size: 11px; background: var(--surface); position: sticky; left: 0; z-index: 1; }
+.gc-grid td.row-hdr strong { color: var(--text); display: block; }
+.gc-mismatch { outline: 2px solid #f85149; outline-offset: -2px; border-radius: 3px; }
+.bias-pos { color: #3fb950; }
+.bias-neg { color: #f85149; }
+.rank-medal { font-size: 15px; }
+
+
 #tip { position: fixed; display: none; max-width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 11px; font-size: 12px; line-height: 1.5; color: var(--text); z-index: 9999; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,.55); word-wrap: break-word; }
 
 @media (max-width: 768px) {
@@ -209,7 +234,12 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
 <main>
   <div class="stats-row" id="stats-row"></div>
 
-  <section>
+  <nav class="page-tabs" id="page-tabs">
+    <button class="ptab active" data-page="benchmarks">📊 Benchmarks</button>
+    <button class="ptab" data-page="graders">🧑‍⚖️ Grader Comparison</button>
+  </nav>
+
+  <div id="page-benchmarks">
     <h2>Model Comparison</h2>
     <div class="filter-bar">
       <span class="filter-label">Show:</span>
@@ -245,6 +275,25 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
     <h2>Reference</h2>
     <div id="accs"></div>
   </section>
+</div><!-- #page-benchmarks -->
+
+<div id="page-graders" style="display:none">
+  <section>
+    <h2>🧑‍⚖️ Grader Comparison</h2>
+    <div class="gc-section">
+      <div>
+        <h3 style="font-size:14px;color:var(--muted);font-weight:600;margin:0 0 10px">Grader Leaderboard</h3>
+        <p style="font-size:12px;color:var(--muted);margin:0 0 12px">Each local LLM was given a fresh copy of <span id="gc-baseline-file" style="font-family:monospace"></span> and graded all 50 responses. Results are compared against the Copilot baseline. Positive bias = grader inflates; negative = deflates.</p>
+        <table class="gc-leaderboard" id="gc-lb"></table>
+      </div>
+      <div>
+        <h3 style="font-size:14px;color:var(--muted);font-weight:600;margin:0 0 10px">Grade-by-Grade Grid</h3>
+        <p style="font-size:12px;color:var(--muted);margin:0 0 12px">Baseline (Copilot) column first, then each grader LLM ranked by accuracy. <span class="gc-mismatch" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:20px;font-size:11px;font-weight:700;border-radius:3px;background:#238636;color:#3fb950">A</span> = disagrees with baseline.</p>
+        <div class="gc-grid-wrap"><table class="gc-grid" id="gc-grid"></table></div>
+      </div>
+    </div>
+  </section>
+</div><!-- #page-graders -->
 </main>
 
 <footer><div id="footer-txt"></div></footer>
@@ -685,6 +734,109 @@ accsEl.appendChild(makeAcc('Data Sources', body => {
   </tbody>`;
   body.appendChild(tbl);
 }));
+
+// ── Page tabs ─────────────────────────────────────────────────────────────────
+document.querySelectorAll('.ptab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const page = btn.dataset.page;
+    document.getElementById('page-benchmarks').style.display = page === 'benchmarks' ? '' : 'none';
+    document.getElementById('page-graders').style.display    = page === 'graders'    ? '' : 'none';
+  });
+});
+
+// ── Grader Comparison ─────────────────────────────────────────────────────────
+const gc = D.graderComparison;
+if (gc?.cells?.length && gc?.stats?.length) {
+  const baseFile = meta.benchmarkFiles[meta.benchmarkFiles.length - 1];
+  document.getElementById('gc-baseline-file').textContent = baseFile + '.yaml';
+
+  const GRADE_SCORE = { A: 5, B: 4, C: 3, D: 2, F: 0 };
+  const medals = ['🥇', '🥈', '🥉'];
+
+  // ── Leaderboard ──
+  const lb = document.getElementById('gc-lb');
+  const lbHead = mkEl('thead');
+  lbHead.innerHTML = '<tr><th>#</th><th>Grader Model</th><th class="num">Exact Match</th><th class="num">Within 1 Letter</th><th class="num">Bias</th><th class="num">Graded</th></tr>';
+  lb.appendChild(lbHead);
+  const lbBody = mkEl('tbody');
+  gc.stats.forEach((s, i) => {
+    const tr = mkEl('tr');
+    const biasStr = s.bias > 0 ? `+${s.bias}` : `${s.bias}`;
+    const biasClass = s.bias > 0.2 ? 'bias-pos' : s.bias < -0.2 ? 'bias-neg' : '';
+    tr.innerHTML = `
+      <td style="text-align:center">${medals[i] ?? (i + 1)}</td>
+      <td><code>${s.grader}</code></td>
+      <td class="num"><strong>${s.exactMatch}%</strong></td>
+      <td class="num">${s.within1}%</td>
+      <td class="num ${biasClass}">${biasStr}</td>
+      <td class="num" style="color:var(--muted)">${s.graded}</td>`;
+    lbBody.appendChild(tr);
+  });
+  lb.appendChild(lbBody);
+
+  // ── Grade grid ──
+  const gradersRanked = gc.stats.map(s => s.grader);   // already sorted by exactMatch desc
+  const grid = document.getElementById('gc-grid');
+
+  // Header row
+  const headRow = mkEl('tr');
+  const thEmpty = mkEl('th', { cls: 'row-hdr', txt: 'Model / Task' });
+  headRow.appendChild(thEmpty);
+  const thBase = mkEl('th');
+  thBase.innerHTML = '<span style="color:var(--accent);font-weight:700">🤖 Copilot</span><br><span style="font-weight:400;font-size:10px;color:var(--muted)">baseline</span>';
+  headRow.appendChild(thBase);
+  gradersRanked.forEach((g, i) => {
+    const th = mkEl('th');
+    th.innerHTML = `${medals[i] ?? ''} <code style="font-size:10px">${g}</code>`;
+    headRow.appendChild(th);
+  });
+  const thead = mkEl('thead');
+  thead.appendChild(headRow);
+  grid.appendChild(thead);
+
+  // Data rows — group by graded model
+  const tbody = mkEl('tbody');
+  let lastModel = null;
+  gc.cells.forEach(cell => {
+    const tr = mkEl('tr');
+
+    // Row header
+    const rowHdr = mkEl('td', { cls: 'row-hdr' });
+    if (cell.gradedModel !== lastModel) {
+      rowHdr.innerHTML = `<strong>${cell.gradedModel}</strong><br><span>${cell.task}</span>`;
+      lastModel = cell.gradedModel;
+    } else {
+      rowHdr.innerHTML = `<span>${cell.task}</span>`;
+    }
+    tr.appendChild(rowHdr);
+
+    // Baseline cell
+    const bl = cell.baseline || '';
+    const blTd = mkEl('td');
+    if (bl) {
+      const badge = mkEl('span', { cls: `grade g-${bl}`, txt: bl });
+      blTd.appendChild(badge);
+    } else { blTd.textContent = '—'; blTd.style.color = 'var(--muted)'; }
+    tr.appendChild(blTd);
+
+    // Grader cells
+    gradersRanked.forEach(g => {
+      const gr = cell[g] || '';
+      const td = mkEl('td');
+      if (gr) {
+        const badge = mkEl('span', { cls: `grade g-${gr}`, txt: gr });
+        if (bl && gr !== bl) badge.classList.add('gc-mismatch');
+        td.appendChild(badge);
+      } else { td.textContent = '—'; td.style.color = 'var(--muted)'; }
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+  grid.appendChild(tbody);
+}
 </script>
 
 <script>
