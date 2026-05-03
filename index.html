@@ -134,9 +134,29 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
   header { padding: 16px; }
   #meta-bar { gap: 8px; }
 }
+
+#reload-overlay {
+  display: none; position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,.7); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+}
+#reload-overlay.visible { display: flex; }
+#reload-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 28px 40px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,.5);
+}
+#reload-box p { margin: 0 0 8px; font-size: 15px; color: var(--muted); }
+#reload-box strong { font-size: 42px; color: var(--accent); }
 </style>
 </head>
 <body>
+
+<div id="reload-overlay">
+  <div id="reload-box">
+    <p>📊 Dashboard data updated — reloading in</p>
+    <strong id="reload-countdown">3</strong>
+  </div>
+</div>
 
 <div id="tip"></div>
 
@@ -579,6 +599,42 @@ accsEl.appendChild(makeAcc('Data Sources', body => {
   </tbody>`;
   body.appendChild(tbl);
 }));
+</script>
+
+<script>
+// ── Auto-reload on data change ────────────────────────────────────────────────
+(function () {
+  let pageHash = null;
+
+  function djb2(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) { h = ((h << 5) - h) + str.charCodeAt(i); h |= 0; }
+    return h;
+  }
+
+  async function checkForUpdate() {
+    try {
+      const r = await fetch(location.href, { cache: 'no-store' });
+      if (!r.ok) return;
+      const h = djb2(await r.text());
+      if (pageHash === null) { pageHash = h; return; }
+      if (h === pageHash) return;
+
+      document.getElementById('reload-overlay').classList.add('visible');
+      let secs = 3;
+      const cd = document.getElementById('reload-countdown');
+      cd.textContent = secs;
+      const tick = setInterval(() => {
+        secs--;
+        cd.textContent = secs;
+        if (secs <= 0) { clearInterval(tick); location.reload(); }
+      }, 1000);
+    } catch (_) {}
+  }
+
+  setTimeout(checkForUpdate, 1500);
+  setInterval(checkForUpdate, 30000);
+}());
 </script>
 </body>
 </html>
