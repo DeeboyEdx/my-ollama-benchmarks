@@ -865,9 +865,7 @@ if (gc?.cells?.length && gc?.stats?.length) {
           const delta = Math.abs((GRADE_SCORE[gr] ?? 0) - (GRADE_SCORE[bl] ?? 0));
           const tier  = delta >= 4 ? 4 : delta;
           td.classList.add(`gc-diff-${tier}`);
-          td.title = `±${delta} from baseline  (grader: ${gr}, baseline: ${bl})`;
-        } else if (bl) {
-          td.title = `Exact match  (${gr})`;
+          td.dataset.tip = `±${delta} from baseline (${bl})`;
         }
         td.appendChild(badge);
       } else { td.textContent = '—'; td.style.color = 'var(--muted)'; }
@@ -877,6 +875,17 @@ if (gc?.cells?.length && gc?.stats?.length) {
     tbody.appendChild(tr);
   });
   grid.appendChild(tbody);
+
+  // Floating tooltip (instant, avoids overflow clipping)
+  const gcTip = mkEl('div');
+  Object.assign(gcTip.style, { position:'fixed', background:'var(--surface2)', color:'var(--text)', border:'1px solid var(--border)', padding:'2px 7px', borderRadius:'4px', fontSize:'11px', pointerEvents:'none', opacity:'0', transition:'opacity 0.05s', zIndex:'9999', whiteSpace:'nowrap' });
+  document.body.appendChild(gcTip);
+  grid.addEventListener('mouseover', e => {
+    const td = e.target.closest('[data-tip]');
+    if (td) { gcTip.textContent = td.dataset.tip; gcTip.style.opacity = '1'; }
+  });
+  grid.addEventListener('mouseout', e => { if (!e.relatedTarget?.closest('[data-tip]')) gcTip.style.opacity = '0'; });
+  grid.addEventListener('mousemove', e => { gcTip.style.left = (e.clientX + 14) + 'px'; gcTip.style.top = (e.clientY - 32) + 'px'; });
 }
 </script>
 
