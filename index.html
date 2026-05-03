@@ -320,7 +320,56 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
         </ul>
       </div>
     </div>
-    <p style="font-size:13px;color:var(--muted)">deepseek-r1:32b is a solid <em>triage</em> grader — good enough to catch obvious failures and correctly reward standout responses — but expect ~+0.3 grade inflation and occasional misses on subtle runtime errors. It is the best available local grader by a meaningful margin.</p>
+  <section>
+    <h2>🔍 Grader Analysis — deepseek-r1:14b</h2>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">60% exact match, 84% within 1 letter, bias +0.58 — ranked #2 by exact match, but the highest bias of all top-tier graders.</p>
+    <div class="callout callout-warn" style="margin-bottom:16px"><strong>Verdict:</strong> Moderately reliable on simple tasks but significantly too lenient — the highest bias of the competitive graders, and major blind spots around unrunnable code and step-count rules.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div>
+        <h3 style="font-size:13px;font-weight:600;color:var(--green);margin:0 0 8px">✅ Where it performs well</h3>
+        <ul style="font-size:13px;color:var(--text);line-height:1.7;padding-left:18px;margin:0">
+          <li><strong>Smoke</strong> — correctly identifies greeting failures and passes clean responses</li>
+          <li><strong>Clean Grammar</strong> — agrees with baseline on responses with no meaning issues</li>
+          <li><strong>Clear Logic failures</strong> — does eventually penalise wrong answers, just rarely reaches F</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size:13px;font-weight:600;color:var(--red);margin:0 0 8px">❌ Consistent divergences</h3>
+        <ul style="font-size:13px;color:var(--text);line-height:1.7;padding-left:18px;margin:0">
+          <li><strong>Unrunnable code</strong> — worst blind spot of all graders: gave A to codestral's <code>IndentationError</code> code, and D→B on phi3:mini's garbled, truncated, unclosed-paren mess — reads intent, ignores syntax</li>
+          <li><strong>Markdown fences</strong> — same as 32b: ignores "code only" rule and upgrades B→A (5 instances)</li>
+          <li><strong>phi3:mini over-graded across the board</strong> — Grammar meaning change missed (C→A), Logic complete failure softened (F→C), Project Orchestration step-count violation ignored (C→A)</li>
+          <li><strong>Logic F→D/C softening</strong> — never assigns F to a wrong answer if any reasoning was attempted</li>
+        </ul>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--muted)">deepseek-r1:14b's +0.58 bias makes it notably more lenient than its 32b sibling. It is less reliable on nuanced cases and has a meaningful risk of rewarding broken code. Suitable for rough triage only — not a trustworthy rubric enforcer.</p>
+  </section>
+  <section>
+    <h2>🔍 Grader Analysis — phi4:14b</h2>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">60% exact match, 88% within 1 letter, bias +0.32 — same exact-match rank as deepseek-r1:14b but notably better calibration and stronger within-1 rate.</p>
+    <div class="callout callout-warn" style="margin-bottom:16px"><strong>Verdict:</strong> The most balanced local grader — lower bias than 14b, better code-error detection than both r1 models, but shares the markdown-fences blind spot and struggles with the ≤12 steps rule.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div>
+        <h3 style="font-size:13px;font-weight:600;color:var(--green);margin:0 0 8px">✅ Where it performs well</h3>
+        <ul style="font-size:13px;color:var(--text);line-height:1.7;padding-left:18px;margin:0">
+          <li><strong>Detects runtime errors in code</strong> — the only local grader to flag codestral's indentation error in its notes, earning a B instead of A (still too lenient, but meaningfully better than the others)</li>
+          <li><strong>Smoke &amp; Grammar</strong> — generally agrees with baseline on clear pass/fail cases</li>
+          <li><strong>Balanced Logic grading</strong> — F→D softening is present but it does occasionally go stricter than baseline (qwen2.5-coder:7b D→F, a defensible call)</li>
+          <li><strong>Low bias for a 14b model</strong> — +0.32 matches deepseek-r1:32b, the best-ranked grader</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size:13px;font-weight:600;color:var(--red);margin:0 0 8px">❌ Consistent divergences</h3>
+        <ul style="font-size:13px;color:var(--text);line-height:1.7;padding-left:18px;margin:0">
+          <li><strong>Markdown fences in Coding</strong> — same blind spot as all r1 models: B→A when code is correct but wrapped in fences</li>
+          <li><strong>mistral/Coding D→B</strong> — misses the fundamental logic error (ignores the input list, generates all primes to max); focuses on style issues instead</li>
+          <li><strong>phi3:mini/Project Orchestration C→A</strong> — ignores the 19+ step count violation entirely</li>
+          <li><strong>Occasionally over-strict</strong> — mixtral/Grammar A→B and deepseek-r1:32b/Proj Orch A→B suggest slight over-criticism on well-formed responses, introducing noise in the other direction</li>
+        </ul>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--muted)">phi4:14b is the most well-rounded local grader in the 14b class. Its code-error awareness is a genuine advantage over the r1 models. If deepseek-r1:32b is unavailable or too slow, phi4:14b is the recommended fallback — particularly given its VRAM efficiency on this machine.</p>
   </section>
 </div><!-- #page-graders -->
 </main>
