@@ -73,8 +73,7 @@ td { padding: 9px 12px; vertical-align: middle; }
 .ram-tag   { font-size: 10px; color: var(--orange); white-space: nowrap; }
 
 /* ── Grade badges ────────────────────────────────────────────── */
-.grade      { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 22px; border-radius: 4px; font-weight: 700; font-size: 12px; }
-.grade.tip  { cursor: help; }
+.grade      { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 22px; border-radius: 4px; font-weight: 700; font-size: 12px; cursor: pointer; }
 .g-A { background: #238636; color: #3fb950; }
 .g-B { background: #9e6a03; color: #e3b341; }
 .g-C { background: #bd561d; color: #f0883e; }
@@ -147,6 +146,38 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
 }
 #reload-box p { margin: 0 0 8px; font-size: 15px; color: var(--muted); }
 #reload-box strong { font-size: 42px; color: var(--accent); }
+/* ── Response modal ───────────────────────────────────────────── */
+#resp-overlay {
+  display: none; position: fixed; inset: 0; z-index: 10000;
+  background: rgba(0,0,0,.75); backdrop-filter: blur(3px);
+  align-items: center; justify-content: center;
+}
+#resp-overlay.open { display: flex; }
+#resp-modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; width: min(740px, 92vw); max-height: 80vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 16px 48px rgba(0,0,0,.65);
+  transform: scale(.95); opacity: 0;
+  transition: transform 150ms ease-out, opacity 150ms ease-out;
+}
+#resp-overlay.open #resp-modal { transform: scale(1); opacity: 1; }
+#resp-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+#resp-title { font-weight: 600; font-size: 14px; color: var(--text); }
+#resp-close {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: 18px; line-height: 1; padding: 2px 8px; border-radius: 4px;
+}
+#resp-close:hover { background: var(--border); color: var(--text); }
+#resp-body { padding: 16px 18px; overflow-y: auto; flex: 1; }
+#resp-body pre {
+  margin: 0; white-space: pre-wrap; word-wrap: break-word;
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 13px; line-height: 1.65; color: var(--text);
+}
 </style>
 </head>
 <body>
@@ -155,6 +186,16 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
   <div id="reload-box">
     <p>📊 Dashboard data updated — reloading in</p>
     <strong id="reload-countdown">3</strong>
+  </div>
+</div>
+
+<div id="resp-overlay">
+  <div id="resp-modal">
+    <div id="resp-header">
+      <span id="resp-title"></span>
+      <button id="resp-close">✕</button>
+    </div>
+    <div id="resp-body"><pre id="resp-content"></pre></div>
   </div>
 </div>
 
@@ -231,6 +272,25 @@ function positionTip(e) {
   if (y < 4)                           y = e.clientY + m;
   tipEl.style.left = x + 'px';
   tipEl.style.top  = y + 'px';
+}
+
+// ── Response modal ────────────────────────────────────────────────────────────
+const respOverlay = document.getElementById('resp-overlay');
+const respTitle   = document.getElementById('resp-title');
+const respContent = document.getElementById('resp-content');
+document.getElementById('resp-close').addEventListener('click', closeResp);
+respOverlay.addEventListener('click', e => { if (e.target === respOverlay) closeResp(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeResp(); });
+
+function openResp(title, text) {
+  respTitle.textContent   = title;
+  respContent.textContent = text?.trim() || '(no response recorded)';
+  respOverlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeResp() {
+  respOverlay.classList.remove('open');
+  document.body.style.overflow = '';
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -315,11 +375,14 @@ function gradeTd(m, task) {
   if (!q?.grade) { td.textContent = '—'; td.style.color = 'var(--muted)'; return td; }
   const badge = mkEl('span', { cls: `grade g-${q.grade}`, txt: q.grade });
   if (q.notes) {
-    badge.classList.add('tip');
     badge.addEventListener('mouseenter', e => showTip(q.notes, e));
     badge.addEventListener('mousemove',  moveTip);
     badge.addEventListener('mouseleave', hideTip);
   }
+  badge.addEventListener('click', () => {
+    hideTip();
+    openResp(`${m.name} · ${task}`, q.response);
+  });
   td.appendChild(badge);
   return td;
 }
