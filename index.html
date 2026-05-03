@@ -145,7 +145,7 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
 .gc-grid th.row-hdr { text-align: left; min-width: 140px; }
 .gc-grid td.row-hdr { text-align: left; color: var(--muted); font-size: 11px; background: var(--surface); position: sticky; left: 0; z-index: 1; }
 .gc-model-hdr-cell { text-align: left !important; font-size: 11px; font-weight: 700; color: var(--text) !important; background: var(--surface2) !important; padding: 2px 8px 0px !important; border-top: 2px solid var(--border) !important; }
-.gc-diff-1 { background: rgba(180,160,70,0.16); }
+.gc-diff-1 { background: rgba(180,160,70,0.09); }
 .gc-diff-2 { background: rgba(185,130,35,0.34); }
 .gc-diff-3 { background: rgba(210,55,35,0.46); }
 .gc-diff-4 { background: rgba(105,85,125,0.62); }
@@ -291,7 +291,7 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
       </div>
       <div>
         <h3 style="font-size:14px;color:var(--muted);font-weight:600;margin:0 0 10px">Grade-by-Grade Grid</h3>
-        <p style="font-size:12px;color:var(--muted);margin:0 0 12px">Baseline (Copilot) column first, then each grader LLM ranked by accuracy. Cell background shows disagreement severity: <span style="background:rgba(180,160,70,0.16);padding:1px 6px;border-radius:3px">±1</span> <span style="background:rgba(185,130,35,0.34);padding:1px 6px;border-radius:3px">±2</span> <span style="background:rgba(210,55,35,0.46);padding:1px 6px;border-radius:3px">±3</span> <span style="background:rgba(105,85,125,0.62);padding:1px 6px;border-radius:3px">±4–5</span></p>
+        <p style="font-size:12px;color:var(--muted);margin:0 0 12px">Baseline (Copilot) column first, then each grader LLM ranked by accuracy. Cell background shows disagreement severity: <span style="background:rgba(180,160,70,0.09);padding:1px 6px;border-radius:3px">±1</span> <span style="background:rgba(185,130,35,0.34);padding:1px 6px;border-radius:3px">±2</span> <span style="background:rgba(210,55,35,0.46);padding:1px 6px;border-radius:3px">±3</span> <span style="background:rgba(105,85,125,0.62);padding:1px 6px;border-radius:3px">±4–5</span></p>
         <div class="gc-grid-wrap"><table class="gc-grid" id="gc-grid"></table></div>
       </div>
     </div>
