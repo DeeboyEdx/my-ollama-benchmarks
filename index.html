@@ -293,6 +293,31 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
       </div>
     </div>
   </section>
+  <section>
+    <h2>🔍 Top Grader Analysis — deepseek-r1:32b</h2>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">Manual review of the highest-ranked grader against the Copilot baseline. 66% exact match, 90% within 1 letter.</p>
+    <div class="callout callout-warn" style="margin-bottom:16px"><strong>Verdict:</strong> Useful but not a drop-in replacement — consistently inflated (+0.30 bias) and unreliable on code formatting rules.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div>
+        <h3 style="font-size:13px;font-weight:600;color:var(--green);margin:0 0 8px">✅ Where it performs well</h3>
+        <ul style="font-size:13px;color:var(--text);line-height:1.7;padding-left:18px;margin:0">
+          <li><strong>Smoke &amp; Grammar</strong> — near-perfect agreement; correctly identifies greeting failures and grammar errors</li>
+          <li><strong>Catastrophic failures</strong> — correctly assigns F to timeouts and clear instruction failures (e.g., tutorial instead of greeting)</li>
+          <li><strong>Logic near-misses</strong> — correctly recognises wrong answers, even if it softens F to D on partially-reasoned responses</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size:13px;font-weight:600;color:var(--red);margin:0 0 8px">❌ Consistent divergences</h3>
+        <ul style="font-size:13px;color:var(--text);line-height:1.7;padding-left:18px;margin:0">
+          <li><strong>Markdown fences in Coding</strong> — upgrades B→A on code that is correct but wrapped in fences, ignoring "code only" instruction (5 mismatches)</li>
+          <li><strong>Runtime errors in code</strong> — gave A to codestral's response that would throw <code>IndentationError</code>; reads intent rather than evaluating syntax</li>
+          <li><strong>Logic F→D softening</strong> — will not assign F even when the answer and reasoning are completely wrong, if the model made some attempt</li>
+          <li><strong>Project Orchestration</strong> — inconsistently applies the 5-element checklist; sometimes misses success criteria that are present or vice versa</li>
+        </ul>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--muted)">deepseek-r1:32b is a solid <em>triage</em> grader — good enough to catch obvious failures and correctly reward standout responses — but expect ~+0.3 grade inflation and occasional misses on subtle runtime errors. It is the best available local grader by a meaningful margin.</p>
+  </section>
 </div><!-- #page-graders -->
 </main>
 
