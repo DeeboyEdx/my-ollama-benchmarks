@@ -257,7 +257,7 @@ if (typeof BENCHMARK_DATA === 'undefined') {
 }
 
 const D = BENCHMARK_DATA;
-const { meta, tasks, models, recommendations, vramNotes } = D;
+const { meta, tasks, models, recommendations, vramNotes, taskInfo } = D;
 const V = meta.vramGB;
 
 // ── Floating tooltip ──────────────────────────────────────────────────────────
@@ -631,6 +631,29 @@ accsEl.appendChild(makeAcc('Metric Glossary', body => {
   tbl.appendChild(tb);
   body.appendChild(tbl);
 }));
+
+// Benchmark Prompts
+if (taskInfo?.length) {
+  accsEl.appendChild(makeAcc('Benchmark Prompts', body => {
+    const intro = mkEl('p', { style: { marginBottom: '14px', color: 'var(--muted)', fontSize: '13px' } });
+    intro.textContent = 'The exact prompts sent to each model during benchmarking.';
+    body.appendChild(intro);
+    taskInfo.forEach(t => {
+      const card = mkEl('div', { style: { marginBottom: '18px' } });
+      const hd = mkEl('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' } });
+      hd.appendChild(mkEl('strong', { txt: t.task }));
+      const badge = mkEl('span', { txt: `${t.timeoutMin} min timeout` });
+      Object.assign(badge.style, { background: 'var(--surface2)', color: 'var(--muted)', fontSize: '11px', padding: '2px 8px', borderRadius: '4px', fontFamily: 'ui-monospace,monospace' });
+      hd.appendChild(badge);
+      card.appendChild(hd);
+      const pre = mkEl('pre');
+      pre.textContent = t.prompt;
+      Object.assign(pre.style, { margin: 0, whiteSpace: 'pre-wrap', wordWrap: 'break-word', fontFamily: 'inherit', fontSize: '13px', color: 'var(--text)', lineHeight: '1.65', background: 'var(--surface2)', padding: '12px 14px', borderRadius: '6px', borderLeft: '3px solid var(--accent)' });
+      card.appendChild(pre);
+      body.appendChild(card);
+    });
+  }));
+}
 
 // Quality Scoring Reference
 accsEl.appendChild(makeAcc('Quality Scoring Reference', body => {
