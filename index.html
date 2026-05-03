@@ -145,7 +145,10 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
 .gc-grid th.row-hdr { text-align: left; min-width: 140px; }
 .gc-grid td.row-hdr { text-align: left; color: var(--muted); font-size: 11px; background: var(--surface); position: sticky; left: 0; z-index: 1; }
 .gc-grid td.row-hdr strong { color: var(--text); display: block; }
-.gc-mismatch { outline: 2px solid #f85149; outline-offset: -2px; border-radius: 3px; }
+.gc-diff-1 { background: rgba(234,179,8,0.18); }
+.gc-diff-2 { background: rgba(249,115,22,0.30); }
+.gc-diff-3 { background: rgba(239,68,68,0.42); }
+.gc-diff-4 { background: rgba(153,27,27,0.62); }
 .bias-pos { color: #3fb950; }
 .bias-neg { color: #f85149; }
 .rank-medal { font-size: 15px; }
@@ -288,7 +291,7 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
       </div>
       <div>
         <h3 style="font-size:14px;color:var(--muted);font-weight:600;margin:0 0 10px">Grade-by-Grade Grid</h3>
-        <p style="font-size:12px;color:var(--muted);margin:0 0 12px">Baseline (Copilot) column first, then each grader LLM ranked by accuracy. <span class="gc-mismatch" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:20px;font-size:11px;font-weight:700;border-radius:3px;background:#238636;color:#3fb950">A</span> = disagrees with baseline.</p>
+        <p style="font-size:12px;color:var(--muted);margin:0 0 12px">Baseline (Copilot) column first, then each grader LLM ranked by accuracy. Cell background shows disagreement severity: <span style="background:rgba(234,179,8,0.18);padding:1px 6px;border-radius:3px">±1</span> <span style="background:rgba(249,115,22,0.30);padding:1px 6px;border-radius:3px">±2</span> <span style="background:rgba(239,68,68,0.42);padding:1px 6px;border-radius:3px">±3</span> <span style="background:rgba(153,27,27,0.62);padding:1px 6px;border-radius:3px">±4–5</span></p>
         <div class="gc-grid-wrap"><table class="gc-grid" id="gc-grid"></table></div>
       </div>
     </div>
@@ -852,7 +855,11 @@ if (gc?.cells?.length && gc?.stats?.length) {
       const td = mkEl('td');
       if (gr) {
         const badge = mkEl('span', { cls: `grade g-${gr}`, txt: gr });
-        if (bl && gr !== bl) badge.classList.add('gc-mismatch');
+        if (bl && gr !== bl) {
+          const delta = Math.abs((GRADE_SCORE[gr] ?? 0) - (GRADE_SCORE[bl] ?? 0));
+          const tier  = delta >= 4 ? 4 : delta;
+          td.classList.add(`gc-diff-${tier}`);
+        }
         td.appendChild(badge);
       } else { td.textContent = '—'; td.style.color = 'var(--muted)'; }
       tr.appendChild(td);
