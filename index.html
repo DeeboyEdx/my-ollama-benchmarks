@@ -371,6 +371,57 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
     </div>
     <p style="font-size:13px;color:var(--muted)">phi4:14b is the most well-rounded local grader in the 14b class. Its code-error awareness is a genuine advantage over the r1 models. If deepseek-r1:32b is unavailable or too slow, phi4:14b is the recommended fallback — particularly given its VRAM efficiency on this machine.</p>
   </section>
+  <section>
+    <h2>🔍 Grader Analysis — qwen3.5:9b</h2>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">56% exact match, 98% within 1 letter (best of any grader tested), bias +0.35 — extremely consistent ceiling with near-zero catastrophic misses, but shares the markdown-fence blind spot and is systematically lenient on Grammar and Project Orchestration.</p>
+    <div class="callout callout-warn" style="margin-bottom:16px"><strong>Verdict:</strong> The safest grader to run unattended — it almost never goes badly wrong — but its leniency on Grammar and Project Orchestration means it will consistently inflate scores in those categories.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div>
+        <h3 style="font-size:13px;font-weight:600;color:var(--green);margin:0 0 8px">✅ Where it performs well</h3>
+        <ul style="font-size:13px;color:var(--text);line-height:1.7;padding-left:18px;margin:0">
+          <li><strong>Tightest ceiling of any grader</strong> — 98% within 1 letter means it almost never produces a wildly divergent grade; the only &gt;1-letter miss is phi3:mini/Grammar (D→B)</li>
+          <li><strong>Logic — stricter than baseline</strong> — correctly upgrades deepseek-coder-v2:16b and mistral:latest from D to F on Logic, penalising wrong answers that also lack coherent reasoning</li>
+          <li><strong>Smoke</strong> — clean pass/fail on greeting failures; no false-negatives on timed-out or off-topic responses</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size:13px;font-weight:600;color:var(--red);margin:0 0 8px">❌ Consistent divergences</h3>
+        <ul style="font-size:13px;color:var(--text);line-height:1.7;padding-left:18px;margin:0">
+          <li><strong>Markdown fences in Coding</strong> — upgrades B→A (or C→B) on 7 responses where code is correct but wrapped in a fence, ignoring the "code only" instruction entirely</li>
+          <li><strong>Grammar inflation</strong> — upgrades 7 Grammar responses B→A; misses subject-verb agreement issues ("data appears") and the phi3:mini meaning change (D→B, a 2-letter gap)</li>
+          <li><strong>Project Orchestration leniency</strong> — upgrades 5 responses B→A; applies the 5-element checklist generously even when elements are thin or buried in prose</li>
+          <li><strong>Smoke capitalisation</strong> — accepts phi3:mini's "Hello, world!" (wrong case) as a perfect A, ignoring the capitalisation mismatch</li>
+        </ul>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--muted)">qwen3.5:9b's 98% within-1 rate makes it uniquely reliable as a bulk screener — it will rarely mislead you by more than one letter. Its Logic strictness is a genuine strength. The tradeoff is systematic leniency on Grammar and ProjOrch, so treat those category scores as a soft upper bound when using this grader.</p>
+  </section>
+  <section>
+    <h2>🔍 Grader Analysis — gemma4:e4b</h2>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">58% exact match, 96% within 1 letter, bias +0.29 (lowest of all 11 graders) — the best overall calibration against the Copilot baseline, with genuine Logic rigour, at the cost of the same markdown-fence blind spot shared by all top graders.</p>
+    <div class="callout callout-warn" style="margin-bottom:16px"><strong>Verdict:</strong> The best-calibrated local grader tested — lowest bias, high exact-match, and uniquely self-critical on Logic. A strong alternative to deepseek-r1:32b, especially given its tiny VRAM footprint.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div>
+        <h3 style="font-size:13px;font-weight:600;color:var(--green);margin:0 0 8px">✅ Where it performs well</h3>
+        <ul style="font-size:13px;color:var(--text);line-height:1.7;padding-left:18px;margin:0">
+          <li><strong>Lowest bias of all graders (+0.29)</strong> — closest overall calibration to the Copilot baseline across all tasks and models</li>
+          <li><strong>Logic rigour</strong> — the only grader to penalise its own response (gemma4:e4b B→F) for giving the correct answer without demonstrating reasoning; also correctly downgrades phi3:mini D→F</li>
+          <li><strong>Project Orchestration precision</strong> — correctly downgrades deepseek-coder-v2:16b from A to B, specifically noting the missing explicit dependencies section</li>
+          <li><strong>Grammar nuance</strong> — gives phi3:mini C rather than D, recognising that grammar was fixed even if meaning shifted — a defensible upgrade</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size:13px;font-weight:600;color:var(--red);margin:0 0 8px">❌ Consistent divergences</h3>
+        <ul style="font-size:13px;color:var(--text);line-height:1.7;padding-left:18px;margin:0">
+          <li><strong>Markdown fences in Coding</strong> — same blind spot as all top graders: upgrades 7 responses (B→A or C→B) for correct code wrapped in fences, ignoring "code only"</li>
+          <li><strong>phi4:14b Smoke F→C</strong> — too lenient on a multi-language code tutorial response; reads "Hello, World! is in there somewhere" rather than evaluating the instruction failure</li>
+          <li><strong>Grammar inflation</strong> — upgrades 7 Grammar responses B→A, consistently missing "data appears" subject-verb issues across models</li>
+          <li><strong>Smoke capitalisation</strong> — accepts phi3:mini's "Hello, world!" as a perfect A, same as qwen3.5:9b</li>
+        </ul>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--muted)">gemma4:e4b's combination of lowest bias, strong Logic strictness, and a tiny model size makes it the most efficient grader in this suite. If you need a fast, well-calibrated bulk grader and deepseek-r1:32b is too slow, gemma4:e4b is the recommended alternative — with the standard caveat that Coding scores will be inflated by one letter wherever markdown fences appear.</p>
+  </section>
 </div><!-- #page-graders -->
 </main>
 
