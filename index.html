@@ -243,6 +243,7 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
     <button class="ptab active" data-page="benchmarks">📊 Benchmarks</button>
     <button class="ptab" data-page="graders">🧑‍⚖️ Grader Comparison</button>
     <button class="ptab" data-page="ctx-sweep" style="display:none">📈 Ctx Sweep</button>
+    <button class="ptab" data-page="gpu-sweep" style="display:none">🎯 GPU Sweep</button>
   </nav>
 
   <div id="page-benchmarks">
@@ -440,6 +441,20 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
     <div id="ctx-sweep-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px"></div>
   </section>
 </div><!-- #page-ctx-sweep -->
+
+<div id="page-gpu-sweep" style="display:none">
+  <section>
+    <h2>🎯 GPU Layer Sweep — T/s vs num_gpu</h2>
+    <p style="margin:0 0 10px">Each chart shows how a model's <strong>inference speed</strong> (tokens/sec) changes as <code>num_gpu</code> — the number of transformer layers offloaded to the GPU — varies from 0 (CPU-only) up to the model's max layer count. This matters most for models whose weights exceed VRAM: forcing partial GPU offload (instead of falling back to 100% CPU) can be dramatically faster.</p>
+    <p style="margin:0 0 10px">For models that fit entirely in VRAM, the curve is usually flat at the right — the optimal is just <code>max_layers</code>. For models that don't fit, there's a sweet spot where pushing more layers onto the GPU starts causing VRAM pressure (or hits the ceiling outright).</p>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 6px">
+      <span style="color:#3fb950">★</span> <strong>Green star</strong> — Optimal num_gpu (best average t/s) &nbsp;·&nbsp;
+      <span style="color:#f85149">◆</span> <strong>Red diamond</strong> — Peak single-sample t/s when it differs from optimal
+    </p>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 20px">A flat curve with optimal = max_layers means the model fits comfortably in VRAM. A cliff curve means you need to explicitly set <code>num_gpu</code> in your config to avoid Ollama's CPU fallback.</p>
+    <div id="gpu-sweep-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px"></div>
+  </section>
+</div><!-- #page-gpu-sweep -->
 </main>
 
 <footer><div id="footer-txt"></div></footer>
@@ -883,6 +898,7 @@ accsEl.appendChild(makeAcc('Data Sources', body => {
 
 // ── Page tabs ─────────────────────────────────────────────────────────────────
 let ctxSweepBuilt = false;
+let gpuSweepBuilt = false;
 document.querySelectorAll('.ptab').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
@@ -891,7 +907,9 @@ document.querySelectorAll('.ptab').forEach(btn => {
     document.getElementById('page-benchmarks').style.display = page === 'benchmarks' ? '' : 'none';
     document.getElementById('page-graders').style.display    = page === 'graders'    ? '' : 'none';
     document.getElementById('page-ctx-sweep').style.display  = page === 'ctx-sweep'  ? '' : 'none';
+    document.getElementById('page-gpu-sweep').style.display  = page === 'gpu-sweep'  ? '' : 'none';
     if (page === 'ctx-sweep' && !ctxSweepBuilt) { buildCtxSweep(); ctxSweepBuilt = true; }
+    if (page === 'gpu-sweep' && !gpuSweepBuilt) { buildGpuSweep(); gpuSweepBuilt = true; }
   });
 });
 
@@ -1083,6 +1101,77 @@ if (ctxSweepData?.models?.length) {
         margin: { l: 50, r: 12, t: 30, b: 44 },
         xaxis: { type: 'log', title: { text: 'num_ctx', font: { size: 10 } }, color: '#6e7681', gridcolor: '#30363d', tickfont: { size: 9 } },
         yaxis, shapes, annotations, hovermode: 'closest',
+      }, { responsive: true, displayModeBar: false });
+    });
+  }
+}
+
+// ── GPU Sweep ─────────────────────────────────────────────────────────────────
+const gpuSweepData = D.gpuSweep;
+if (gpuSweepData?.models?.length) {
+  document.querySelector('[data-page="gpu-sweep"]').style.display = '';
+
+  function buildGpuSweep() {
+    const grid = document.getElementById('gpu-sweep-grid');
+    gpuSweepData.models.forEach(m => {
+      const wrapper = mkEl('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px' } });
+      const plotDiv = mkEl('div'); plotDiv.style.height = '240px';
+      wrapper.appendChild(plotDiv);
+      grid.appendChild(wrapper);
+
+      const gpuVals = m.curve.map(p => p[0]);
+      const tpsVals = m.curve.map(p => p[1]);
+      const tpsMin  = Math.min(...tpsVals);
+      const tpsMax  = Math.max(...tpsVals);
+
+      const traces = [{
+        x: gpuVals, y: tpsVals, mode: 'lines+markers', showlegend: false, name: m.name,
+        line: { width: 2, color: '#a371f7' }, marker: { size: 6, color: '#a371f7' },
+        hovertemplate: 'num_gpu=%{x}<br>t/s=%{y:.2f}<extra></extra>',
+      }];
+
+      if (m.optimalGpu != null) {
+        const optIdx = gpuVals.indexOf(m.optimalGpu);
+        const optTps = optIdx >= 0 ? tpsVals[optIdx] : (m.optimalTps ?? 0);
+        traces.push({
+          x: [m.optimalGpu], y: [optTps], mode: 'markers', showlegend: false,
+          marker: { size: 12, color: '#3fb950', symbol: 'star' },
+          hovertemplate: `⭐ optimal num_gpu=%{x}<br>t/s=%{y:.2f}<extra></extra>`,
+        });
+      }
+      if (m.peakGpu != null && m.peakGpu !== m.optimalGpu) {
+        traces.push({
+          x: [m.peakGpu], y: [m.peakTps], mode: 'markers', showlegend: false,
+          marker: { size: 8, color: '#f85149', symbol: 'diamond' },
+          hovertemplate: '🔴 peak num_gpu=%{x}<br>t/s=%{y:.2f}<extra></extra>',
+        });
+      }
+
+      const annotations = [];
+      if (m.maxLayers != null) {
+        annotations.push({
+          x: 1, xref: 'paper', y: 1, yref: 'paper',
+          text: `max ${m.maxLayers}${m.atMaxLayers ? '' : ' (cap)'}`,
+          showarrow: false, font: { size: 9, color: '#6e7681' },
+          xanchor: 'right', yanchor: 'top'
+        });
+      }
+
+      // Flat curve: widen Y-axis so small noise doesn't look dramatic (<15% variation for GPU sweeps)
+      const tpsRange = tpsMax - tpsMin;
+      const yaxis = { title: { text: 't/s', font: { size: 10 } }, color: '#6e7681', gridcolor: '#30363d', tickfont: { size: 9 } };
+      if (tpsRange < 0.15 * tpsMax) {
+        const center   = (tpsMin + tpsMax) / 2;
+        const halfSpan = Math.max(tpsMax * 0.15, tpsRange);
+        yaxis.range = [center - halfSpan, center + halfSpan];
+      }
+
+      Plotly.newPlot(plotDiv, traces, {
+        title: { text: m.name, font: { size: 12, color: '#c9d1d9', family: "ui-monospace,'Cascadia Code',monospace" }, x: 0.05, xanchor: 'left' },
+        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+        margin: { l: 50, r: 12, t: 30, b: 44 },
+        xaxis: { title: { text: 'num_gpu (layers)', font: { size: 10 } }, color: '#6e7681', gridcolor: '#30363d', tickfont: { size: 9 } },
+        yaxis, annotations, hovermode: 'closest',
       }, { responsive: true, displayModeBar: false });
     });
   }
