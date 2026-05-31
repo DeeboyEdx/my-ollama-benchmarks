@@ -1158,11 +1158,12 @@ if (gpuSweepData?.models?.length) {
       }
 
       // Flat curve: widen Y-axis so small noise doesn't look dramatic (<15% variation for GPU sweeps)
+      // Extra 60% padding applied to halfSpan so flat curves visually emphasize their flatness.
       const tpsRange = tpsMax - tpsMin;
       const yaxis = { title: { text: 't/s', font: { size: 10 } }, color: '#6e7681', gridcolor: '#30363d', tickfont: { size: 9 } };
       if (tpsRange < 0.15 * tpsMax) {
         const center   = (tpsMin + tpsMax) / 2;
-        const halfSpan = Math.max(tpsMax * 0.15, tpsRange);
+        const halfSpan = Math.max(tpsMax * 0.15, tpsRange) * 1.6;
         yaxis.range = [center - halfSpan, center + halfSpan];
       }
 
