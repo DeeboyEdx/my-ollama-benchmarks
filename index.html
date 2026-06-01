@@ -53,6 +53,9 @@ h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14
 .filter-btn  { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all .15s; }
 .filter-btn:hover  { border-color: var(--blue); }
 .filter-btn.active { background: rgba(56,139,253,.12); border-color: var(--blue); color: var(--blue); }
+.filter-btn-type  { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all .15s; }
+.filter-btn-type:hover  { border-color: var(--blue); }
+.filter-btn-type.active { background: rgba(56,139,253,.12); border-color: var(--blue); color: var(--blue); }
 
 /* ── Table ───────────────────────────────────────────────────── */
 .tbl-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
@@ -242,8 +245,8 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
   <nav class="page-tabs" id="page-tabs">
     <button class="ptab active" data-page="benchmarks">📊 Benchmarks</button>
     <button class="ptab" data-page="graders">🧑‍⚖️ Grader Comparison</button>
-    <button class="ptab" data-page="ctx-sweep" style="display:none">📈 Ctx Sweep</button>
     <button class="ptab" data-page="gpu-sweep" style="display:none">🎯 GPU Sweep</button>
+    <button class="ptab" data-page="ctx-sweep" style="display:none">📈 Ctx Sweep</button>
   </nav>
 
   <div id="page-benchmarks">
@@ -253,6 +256,10 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
       <button class="filter-btn active" data-f="all">All models</button>
       <button class="filter-btn" data-f="fit">✅ Fits in VRAM</button>
       <button class="filter-btn" data-f="over">⚠️ CPU Offload</button>
+      <span class="filter-label" style="margin-left:16px">Architecture:</span>
+      <button class="filter-btn-type active" data-t="all">All</button>
+      <button class="filter-btn-type" data-t="Dense">Dense</button>
+      <button class="filter-btn-type" data-t="MoE">MoE</button>
     </div>
     <div class="tbl-wrap">
       <table id="tbl">
@@ -437,7 +444,19 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
       <span style="color:#f85149">◆</span> <strong>Red diamond</strong> — Peak t/s when it differs from optimal &nbsp;·&nbsp;
       <span style="color:var(--muted)">╌╌</span> <strong>Gray dashed</strong> — Model's default ctx
     </p>
-    <p style="font-size:12px;color:var(--muted);margin:0 0 20px"><strong>Flat curves</strong> (most small models) mean context size barely affects speed — optimal = max. <strong>Cliff curves</strong> (larger models) have a sharp drop-off where the KV-cache exhausts VRAM; the green star marks the sweet spot just before that cliff.</p>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 12px"><strong>Flat curves</strong> (most small models) mean context size barely affects speed — optimal = max. <strong>Cliff curves</strong> (larger models) have a sharp drop-off where the KV-cache exhausts VRAM; the green star marks the sweet spot just before that cliff.</p>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 20px"><em>Note: only models whose weights fit entirely in VRAM are eligible for the ctx sweep. The sweep probes at full GPU offload (<code>num_gpu = max_layers</code>) to find the VRAM-limited context ceiling, which only makes sense if the model already fits.</em></p>
+    <div style="margin:0 0 16px;display:flex;gap:8px;align-items:center;font-size:13px">
+      <label for="ctx-sort" style="color:var(--muted)">Sort by:</label>
+      <select id="ctx-sort" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:13px">
+        <option value="name">Model name (A–Z)</option>
+        <option value="arch">Architecture (Dense/MoE)</option>
+        <option value="family">Family</option>
+        <option value="tps">t/s (high → low)</option>
+        <option value="size">Size (small → large)</option>
+        <option value="optimal">Optimal num_ctx (low → high)</option>
+      </select>
+    </div>
     <div id="ctx-sweep-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px"></div>
   </section>
 </div><!-- #page-ctx-sweep -->
@@ -452,6 +471,17 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
       <span style="color:#f85149">◆</span> <strong>Red diamond</strong> — Peak single-sample t/s when it differs from optimal
     </p>
     <p style="font-size:12px;color:var(--muted);margin:0 0 20px">A flat curve with optimal = max_layers means the model fits comfortably in VRAM. A cliff curve means you need to explicitly set <code>num_gpu</code> in your config to avoid Ollama's CPU fallback.</p>
+    <div style="margin:0 0 16px;display:flex;gap:8px;align-items:center;font-size:13px">
+      <label for="gpu-sort" style="color:var(--muted)">Sort by:</label>
+      <select id="gpu-sort" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:13px">
+        <option value="arch">Architecture (Dense/MoE)</option>
+        <option value="family">Family</option>
+        <option value="name">Model name (A–Z)</option>
+        <option value="tps">t/s (high → low)</option>
+        <option value="size">Size (small → large)</option>
+        <option value="optimal">Optimal num_gpu (low → high)</option>
+      </select>
+    </div>
     <div id="gpu-sweep-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px"></div>
   </section>
 </div><!-- #page-gpu-sweep -->
@@ -473,6 +503,7 @@ const V = meta.vramGB;
 // ── Floating tooltip ──────────────────────────────────────────────────────────
 const tipEl = document.getElementById('tip');
 function showTip(text, e) { tipEl.textContent = text; tipEl.style.display = 'block'; positionTip(e); }
+function showTipHTML(html, e) { tipEl.innerHTML = html; tipEl.style.display = 'block'; positionTip(e); }
 function moveTip(e)        { positionTip(e); }
 function hideTip()         { tipEl.style.display = 'none'; }
 function positionTip(e) {
@@ -482,6 +513,80 @@ function positionTip(e) {
   if (y < 4)                           y = e.clientY + m;
   tipEl.style.left = x + 'px';
   tipEl.style.top  = y + 'px';
+}
+
+// ── Model bios ────────────────────────────────────────────────────────────────
+// Ollama's `architecture` field doesn't distinguish Dense from MoE
+// (e.g. mixtral reports "llama", deepseek-coder-v2 reports "deepseek2").
+// Maintain this small set of known MoE model names. Add entries when you install a new MoE model.
+const MOE_MODELS = new Set([
+  'mixtral:8x7b',
+  'deepseek-coder-v2:16b',
+]);
+// Optional editorial notes — appears as a final italic line. Add only where it adds real value.
+const MODEL_NOTES = {
+  'mixtral:8x7b':          'MoE — only ~2 of 8 experts active per token, so partial GPU offload often beats full offload.',
+  'deepseek-coder-v2:16b': 'MoE — only ~15% of params active per token; small num_gpu often wins.',
+  'deepseek-r1:14b':       'Reasoning model — emits explicit <think> chain-of-thought.',
+  'deepseek-r1:32b':       'Reasoning model — emits explicit <think> chain-of-thought.',
+};
+// Per-model bio lookup keyed by model name. Pulls from data.js `bio` field.
+const MODEL_BIO_INDEX = Object.fromEntries(models.map(m => [m.name, m]));
+function archOf(name) { return MOE_MODELS.has(name) ? 'MoE' : 'Dense'; }
+function bioHTML(name) {
+  const m = MODEL_BIO_INDEX[name];
+  if (!m) return `<strong>${name}</strong>`;
+  const b = m.bio ?? {};
+  const arch = archOf(name);
+  const head = [arch, b.architecture, b.quantization].filter(Boolean).join(' • ');
+  const rows = [];
+  if (b.embeddingDim != null)             rows.push(`<tr><td style="color:var(--muted);padding-right:10px">Embedding dim</td><td><strong>${b.embeddingDim.toLocaleString()}</strong></td></tr>`);
+  if (b.capabilities?.length)             rows.push(`<tr><td style="color:var(--muted);padding-right:10px">Capabilities</td><td>${b.capabilities.join(', ')}</td></tr>`);
+  const note = MODEL_NOTES[name];
+  return `<strong>${name}</strong><br>`
+       + `<span style="color:var(--muted)">${head}</span>`
+       + (rows.length ? `<table style="margin-top:6px;font-size:11px;border-collapse:collapse">${rows.join('')}</table>` : '')
+       + (note ? `<div style="margin-top:6px;font-style:italic;color:var(--muted);max-width:340px">${note}</div>` : '');
+}
+
+// Friendly family display names (falls back to raw family id if not listed)
+const FAMILY_DISPLAY = {
+  'phi3':              'Microsoft Phi-3',
+  'phi4':              'Microsoft Phi-4',
+  'mistral':           'Mistral 7B',
+  'mixtral':           'Mistral Mixtral (MoE)',
+  'qwen3.5':           'Alibaba Qwen 3.5',
+  'qwen2.5-coder':     'Alibaba Qwen 2.5 Coder',
+  'deepseek-r1':       'DeepSeek R1 (reasoning)',
+  'deepseek-coder-v2': 'DeepSeek-Coder-V2 (MoE)',
+  'gemma4':            'Google Gemma 4',
+};
+function familyLabel(fam) { return FAMILY_DISPLAY[fam] ?? fam ?? '—'; }
+
+// Returns { label, value } for the current sort mode, for sweep-card subtitle badges.
+function sortBadge(m, mode, kind /* 'ctx' | 'gpu' */) {
+  switch (mode) {
+    case 'family':  return m.family != null ? { label: 'family', value: familyLabel(m.family) } : null;
+    case 'arch':    {
+      const t = archOf(m.name);
+      return { label: 'arch', value: t };
+    }
+    case 'tps':     {
+      const v = m.optimalTps ?? m.peakTps;
+      return v != null ? { label: 't/s', value: `${(+v).toFixed(2)}` } : null;
+    }
+    case 'size':    return m.sizeGB != null ? { label: 'size', value: `${m.sizeGB} GB` } : null;
+    case 'optimal': {
+      const v = kind === 'ctx' ? (m.optimalCtx ?? m.peakCtx) : (m.optimalGpu ?? m.peakGpu);
+      const lab = kind === 'ctx' ? 'optimal ctx' : 'optimal num_gpu';
+      return v != null ? { label: lab, value: kind === 'ctx' ? (+v).toLocaleString() : `${v}` } : null;
+    }
+    default: return null;  // 'name' — no badge needed (it's the title)
+  }
+}
+function badgeHTML(b) {
+  if (!b) return '';
+  return `<span style="font-size:11px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);padding:2px 8px;border-radius:10px;white-space:nowrap"><span style="opacity:.7">${b.label}:</span> <strong style="color:var(--text)">${b.value}</strong></span>`;
 }
 
 // ── Response modal ────────────────────────────────────────────────────────────
@@ -552,7 +657,7 @@ const statsRow = document.getElementById('stats-row');
 });
 
 // ── Model table ───────────────────────────────────────────────────────────────
-let sortKey = 'avgTtoS', sortDir = 1, filterMode = 'all';
+let sortKey = 'avgTtoS', sortDir = 1, filterMode = 'all', filterType = 'all';
 
 const taskColors = {
   Smoke:       '#388bfd',
@@ -599,7 +704,16 @@ function gradeTd(m, task) {
 
 const cols = [
   { key: 'name',        label: 'Model',           sv: m => m.name ?? '',
-    td: m => { const td = mkEl('td'); td.appendChild(mkEl('span', { cls: 'model-name', txt: m.name })); return td; } },
+    td: m => {
+      const td = mkEl('td');
+      const span = mkEl('span', { cls: 'model-name', txt: m.name });
+      span.style.cursor = 'help';
+      span.addEventListener('mouseenter', e => showTipHTML(bioHTML(m.name), e));
+      span.addEventListener('mousemove',  moveTip);
+      span.addEventListener('mouseleave', hideTip);
+      td.appendChild(span);
+      return td;
+    } },
   { key: 'params',      label: 'Params',           sv: m => { const v = parseFloat(m.params); return isNaN(v) ? 0 : v; },
     td: m => mkEl('td', { txt: m.params ?? '—' }) },
   { key: 'contextK',    label: 'Context',          sv: m => parseFloat(m.contextK) || 0,
@@ -638,6 +752,7 @@ function buildBody() {
   let rows = [...models];
   if (filterMode === 'fit')  rows = rows.filter(m =>  m.fitsInVram);
   if (filterMode === 'over') rows = rows.filter(m => !m.fitsInVram);
+  if (filterType !== 'all')  rows = rows.filter(m => archOf(m.name) === filterType);
   const col = cols.find(c => c.key === sortKey);
   rows.sort((a, b) => { const av = col.sv(a), bv = col.sv(b); if (av < bv) return -sortDir; if (av > bv) return sortDir; return 0; });
   const tbody = document.getElementById('tbl-body');
@@ -648,6 +763,13 @@ function buildBody() {
 document.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('click', () => {
   filterMode = btn.dataset.f;
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  buildBody();
+}));
+
+document.querySelectorAll('.filter-btn-type').forEach(btn => btn.addEventListener('click', () => {
+  filterType = btn.dataset.t;
+  document.querySelectorAll('.filter-btn-type').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   buildBody();
 }));
@@ -1032,10 +1154,33 @@ const ctxSweepData = D.ctxSweep;
 if (ctxSweepData?.models?.length) {
   document.querySelector('[data-page="ctx-sweep"]').style.display = '';
 
+  function sortCtxModels(models, mode) {
+    const arr = [...models];
+    const cmp = {
+      family:  (a,b) => (a.family ?? '').localeCompare(b.family ?? '') || (a.sizeGB ?? 0) - (b.sizeGB ?? 0),
+      arch:    (a,b) => archOf(a.name).localeCompare(archOf(b.name)) || (a.sizeGB ?? 0) - (b.sizeGB ?? 0),
+      name:    (a,b) => a.name.localeCompare(b.name),
+      tps:     (a,b) => (b.optimalTps ?? b.peakTps ?? 0) - (a.optimalTps ?? a.peakTps ?? 0),
+      size:    (a,b) => (a.sizeGB ?? 0) - (b.sizeGB ?? 0),
+      optimal: (a,b) => (a.optimalCtx ?? a.peakCtx ?? 0) - (b.optimalCtx ?? b.peakCtx ?? 0),
+    }[mode] ?? cmp.family;
+    arr.sort(cmp);
+    return arr;
+  }
+
   function buildCtxSweep() {
     const grid = document.getElementById('ctx-sweep-grid');
-    ctxSweepData.models.forEach(m => {
+    const sortSel = document.getElementById('ctx-sort');
+    grid.innerHTML = '';
+    const models = sortCtxModels(ctxSweepData.models, sortSel?.value ?? 'name');
+    const sortMode = sortSel?.value ?? 'name';
+    models.forEach(m => {
       const wrapper = mkEl('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px' } });
+      const header = mkEl('div', { style: { display:'flex', justifyContent:'space-between', alignItems:'center', gap:'8px', marginBottom:'4px' } });
+      const nameEl = mkEl('span', { txt: m.name, style: { fontFamily:"ui-monospace,'Cascadia Code',monospace", fontSize:'12px', color:'var(--text)' } });
+      header.appendChild(nameEl);
+      header.insertAdjacentHTML('beforeend', badgeHTML(sortBadge(m, sortMode, 'ctx')));
+      wrapper.appendChild(header);
       const plotDiv = mkEl('div'); plotDiv.style.height = '240px';
       wrapper.appendChild(plotDiv);
       grid.appendChild(wrapper);
@@ -1096,14 +1241,14 @@ if (ctxSweepData?.models?.length) {
       }
 
       Plotly.newPlot(plotDiv, traces, {
-        title: { text: m.name, font: { size: 12, color: '#c9d1d9', family: "ui-monospace,'Cascadia Code',monospace" }, x: 0.05, xanchor: 'left' },
         paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-        margin: { l: 50, r: 12, t: 30, b: 44 },
+        margin: { l: 50, r: 12, t: 8, b: 44 },
         xaxis: { type: 'log', title: { text: 'num_ctx', font: { size: 10 } }, color: '#6e7681', gridcolor: '#30363d', tickfont: { size: 9 } },
         yaxis, shapes, annotations, hovermode: 'closest',
       }, { responsive: true, displayModeBar: false });
     });
   }
+  document.getElementById('ctx-sort')?.addEventListener('change', () => buildCtxSweep());
 }
 
 // ── GPU Sweep ─────────────────────────────────────────────────────────────────
@@ -1111,10 +1256,33 @@ const gpuSweepData = D.gpuSweep;
 if (gpuSweepData?.models?.length) {
   document.querySelector('[data-page="gpu-sweep"]').style.display = '';
 
+  function sortGpuModels(models, mode) {
+    const arr = [...models];
+    const cmp = {
+      family:  (a,b) => (a.family ?? '').localeCompare(b.family ?? '') || (a.sizeGB ?? 0) - (b.sizeGB ?? 0),
+      arch:    (a,b) => archOf(a.name).localeCompare(archOf(b.name)) || (a.sizeGB ?? 0) - (b.sizeGB ?? 0),
+      name:    (a,b) => a.name.localeCompare(b.name),
+      tps:     (a,b) => (b.optimalTps ?? b.peakTps ?? 0) - (a.optimalTps ?? a.peakTps ?? 0),
+      size:    (a,b) => (a.sizeGB ?? 0) - (b.sizeGB ?? 0),
+      optimal: (a,b) => (a.optimalGpu ?? a.peakGpu ?? 0) - (b.optimalGpu ?? b.peakGpu ?? 0),
+    }[mode] ?? cmp.family;
+    arr.sort(cmp);
+    return arr;
+  }
+
   function buildGpuSweep() {
     const grid = document.getElementById('gpu-sweep-grid');
-    gpuSweepData.models.forEach(m => {
+    const sortSel = document.getElementById('gpu-sort');
+    grid.innerHTML = '';
+    const models = sortGpuModels(gpuSweepData.models, sortSel?.value ?? 'arch');
+    const sortMode = sortSel?.value ?? 'arch';
+    models.forEach(m => {
       const wrapper = mkEl('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px' } });
+      const header = mkEl('div', { style: { display:'flex', justifyContent:'space-between', alignItems:'center', gap:'8px', marginBottom:'4px' } });
+      const nameEl = mkEl('span', { txt: m.name, style: { fontFamily:"ui-monospace,'Cascadia Code',monospace", fontSize:'12px', color:'var(--text)' } });
+      header.appendChild(nameEl);
+      header.insertAdjacentHTML('beforeend', badgeHTML(sortBadge(m, sortMode, 'gpu')));
+      wrapper.appendChild(header);
       const plotDiv = mkEl('div'); plotDiv.style.height = '240px';
       wrapper.appendChild(plotDiv);
       grid.appendChild(wrapper);
@@ -1183,14 +1351,14 @@ if (gpuSweepData?.models?.length) {
       xaxis.range = [xMin - xPad, xUpper + xPad];
 
       Plotly.newPlot(plotDiv, traces, {
-        title: { text: m.name, font: { size: 12, color: '#c9d1d9', family: "ui-monospace,'Cascadia Code',monospace" }, x: 0.05, xanchor: 'left' },
         paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-        margin: { l: 50, r: 12, t: 30, b: 44 },
+        margin: { l: 50, r: 12, t: 8, b: 44 },
         xaxis,
         yaxis, shapes, annotations, hovermode: 'closest',
       }, { responsive: true, displayModeBar: false });
     });
   }
+  document.getElementById('gpu-sort')?.addEventListener('change', () => buildGpuSweep());
 }
 
 (function () {
