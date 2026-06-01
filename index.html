@@ -471,14 +471,16 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
       <span style="color:#f85149">◆</span> <strong>Red diamond</strong> — Peak single-sample t/s when it differs from optimal
     </p>
     <p style="font-size:12px;color:var(--muted);margin:0 0 20px">A flat curve with optimal = max_layers means the model fits comfortably in VRAM. A cliff curve means you need to explicitly set <code>num_gpu</code> in your config to avoid Ollama's CPU fallback.</p>
-    <div style="font-size:12px;color:var(--muted);background:rgba(248,81,73,.06);border-left:3px solid #f85149;padding:10px 12px;margin:0 0 20px;border-radius:4px">
-      <strong style="color:var(--text)">⚠️ Caveat: GPU sweeps used each model's <em>full default</em> context window.</strong>
+    <details style="font-size:12px;color:var(--muted);background:rgba(248,81,73,.06);border-left:3px solid #f85149;padding:8px 12px;margin:0 0 20px;border-radius:4px">
+      <summary style="cursor:pointer;color:var(--text);font-weight:600;list-style:none">⚠️ Caveat: GPU sweeps used each model's <em>full default</em> context window — click to expand</summary>
+      <div style="margin-top:10px">
       The sweeps were run without an explicit <code>num_ctx</code>, so Ollama loaded each model at its declared max context (e.g. 131K for <code>phi3:mini</code>, 163K for <code>deepseek-coder-v2:16b</code>). That eagerly allocates a massive KV cache that fills VRAM regardless of <code>num_gpu</code>.
       <br><br>
       <strong style="color:var(--text)">Implication:</strong> For VRAM-fit models with large default contexts (phi3, deepseek-coder-v2, deepseek-r1:14b, qwen3.5, gemma4:e4b), the "optimal" <code>num_gpu</code> shown here is bottlenecked by KV cache bloat — not by layer offload. At a sane context like 2K, these models run at full GPU offload with VRAM to spare. See the <strong>Ctx Sweep</strong> tab for authoritative VRAM-fit results — that methodology sets <code>num_ctx</code> explicitly.
       <br><br>
       <strong style="color:var(--text)">Unaffected:</strong> Large partial-offload models (<code>gemma4:26b</code>, <code>gemma4:31b</code>, <code>deepseek-r1:32b</code>, <code>mixtral:8x7b</code>) — their weights already exceed VRAM, so default-ctx KV cache is a rounding error and these <code>num_gpu</code> results are valid.
-    </div>
+      </div>
+    </details>
     <div style="margin:0 0 16px;display:flex;gap:8px;align-items:center;font-size:13px">
       <label for="gpu-sort" style="color:var(--muted)">Sort by:</label>
       <select id="gpu-sort" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:13px">
