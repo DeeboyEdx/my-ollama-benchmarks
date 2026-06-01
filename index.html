@@ -1291,14 +1291,16 @@ if (gpuSweepData?.models?.length) {
       const header = mkEl('div', { style: { display:'flex', justifyContent:'space-between', alignItems:'center', gap:'8px', marginBottom:'4px' } });
       const nameEl = mkEl('span', { txt: m.name, style: { fontFamily:"ui-monospace,'Cascadia Code',monospace", fontSize:'12px', color:'var(--text)' } });
       header.appendChild(nameEl);
+      const badgeGroup = mkEl('div', { style: { display:'flex', gap:'6px', alignItems:'center' } });
       if (sortMode === 'size' && m.vramFit != null) {
         const fit = m.vramFit;
         const color = fit ? '#3fb950' : '#f85149';
         const txt = fit ? '✓ VRAM-fit' : '✗ Over VRAM';
-        header.insertAdjacentHTML('beforeend',
+        badgeGroup.insertAdjacentHTML('beforeend',
           `<span style="font-size:11px;color:${color};background:var(--surface2);border:1px solid ${color}55;padding:2px 8px;border-radius:10px;white-space:nowrap"><strong>${txt}</strong></span>`);
       }
-      header.insertAdjacentHTML('beforeend', badgeHTML(sortBadge(m, sortMode, 'gpu')));
+      badgeGroup.insertAdjacentHTML('beforeend', badgeHTML(sortBadge(m, sortMode, 'gpu')));
+      header.appendChild(badgeGroup);
       wrapper.appendChild(header);
       const plotDiv = mkEl('div'); plotDiv.style.height = '240px';
       wrapper.appendChild(plotDiv);
