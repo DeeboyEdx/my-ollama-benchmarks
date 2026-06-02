@@ -6,7 +6,7 @@
 <title>Ollama LLM Benchmarks</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦙</text></svg>">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script src="https://cdn.plot.ly/plotly-basic-2.35.2.min.js" charset="utf-8"></script>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
 <script src="data.js"></script>
 <style>
 :root {
@@ -247,6 +247,7 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
     <button class="ptab" data-page="graders">🧑‍⚖️ Grader Comparison</button>
     <button class="ptab" data-page="gpu-sweep" style="display:none">🎯 GPU Sweep</button>
     <button class="ptab" data-page="ctx-sweep" style="display:none">📈 Ctx Sweep</button>
+    <button class="ptab" data-page="matrix" style="display:none">🌐 3D Surface</button>
   </nav>
 
   <div id="page-benchmarks">
@@ -495,6 +496,24 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
     <div id="gpu-sweep-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px"></div>
   </section>
 </div><!-- #page-gpu-sweep -->
+
+<div id="page-matrix" style="display:none">
+  <section>
+    <h2>🌐 3D Performance Surface — t/s vs (num_gpu, num_ctx)</h2>
+    <p style="margin:0 0 10px">Each surface plots <strong>tokens/sec</strong> as a function of both the number of GPU-offloaded layers (<code>num_gpu</code>) and the context window size (<code>num_ctx</code>). This is the most complete view of a model's performance landscape — it shows the trade-offs between speed and headroom that the GPU and Ctx sweeps each measure along only one axis.</p>
+    <p style="margin:0 0 14px;font-size:13px;color:var(--muted)">
+      <span style="color:#3fb950">★</span> Optimal point (from <code>tune_results.json</code> — full-offload knee) &nbsp;·&nbsp;
+      White dots mark actually-benchmarked cells &nbsp;·&nbsp;
+      Surface between dots is interpolated by Plotly.
+    </p>
+    <div style="margin:0 0 16px;display:flex;gap:8px;align-items:center;font-size:13px;flex-wrap:wrap">
+      <label for="matrix-model" style="color:var(--muted)">Model:</label>
+      <select id="matrix-model" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:13px;min-width:220px"></select>
+      <span id="matrix-meta" style="color:var(--muted);font-size:12px"></span>
+    </div>
+    <div id="matrix-plot" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;min-height:560px"></div>
+  </section>
+</div><!-- #page-matrix -->
 </main>
 
 <footer><div id="footer-txt"></div></footer>
@@ -1031,6 +1050,7 @@ accsEl.appendChild(makeAcc('Data Sources', body => {
 // ── Page tabs ─────────────────────────────────────────────────────────────────
 let ctxSweepBuilt = false;
 let gpuSweepBuilt = false;
+let matrixBuilt   = false;
 document.querySelectorAll('.ptab').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
@@ -1040,8 +1060,10 @@ document.querySelectorAll('.ptab').forEach(btn => {
     document.getElementById('page-graders').style.display    = page === 'graders'    ? '' : 'none';
     document.getElementById('page-ctx-sweep').style.display  = page === 'ctx-sweep'  ? '' : 'none';
     document.getElementById('page-gpu-sweep').style.display  = page === 'gpu-sweep'  ? '' : 'none';
+    document.getElementById('page-matrix').style.display      = page === 'matrix'     ? '' : 'none';
     if (page === 'ctx-sweep' && !ctxSweepBuilt) { buildCtxSweep(); ctxSweepBuilt = true; }
     if (page === 'gpu-sweep' && !gpuSweepBuilt) { buildGpuSweep(); gpuSweepBuilt = true; }
+    if (page === 'matrix' && !matrixBuilt) { buildMatrix(); matrixBuilt = true; }
   });
 });
 
@@ -1378,6 +1400,134 @@ if (gpuSweepData?.models?.length) {
     });
   }
   document.getElementById('gpu-sort')?.addEventListener('change', () => buildGpuSweep());
+}
+
+// ── 3D Surface (matrix sweep) ─────────────────────────────────────────────────
+const matrixData = D.matrixSweep;
+if (matrixData?.models?.length) {
+  document.querySelector('[data-page="matrix"]').style.display = '';
+
+  const sel = document.getElementById('matrix-model');
+  const sortedModels = [...matrixData.models].sort((a, b) => a.name.localeCompare(b.name));
+  sortedModels.forEach((m, i) => {
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = m.name;
+    sel.appendChild(opt);
+  });
+
+  function fmtCtx(n) { return n >= 1024 ? `${Math.round(n / 1024)}K` : String(n); }
+
+  function renderMatrix(m) {
+    const plotDiv = document.getElementById('matrix-plot');
+    const meta    = document.getElementById('matrix-meta');
+
+    const gpuVals = m.gpuVals;
+    const ctxVals = m.ctxVals;
+    // Build (gpu, ctx) → tps lookup
+    const lookup = new Map();
+    m.points.forEach(([g, c, t]) => lookup.set(`${g}:${c}`, t));
+
+    // Plotly Surface: x = num_ctx (indexed for K-formatted ticks), y = num_gpu.
+    // z[i][j] is indexed [yIndex=gpuIndex][xIndex=ctxIndex].
+    const ctxIdx    = ctxVals.map((_, i) => i);
+    const ctxLabels = ctxVals.map(fmtCtx);
+
+    const z = gpuVals.map(g => ctxVals.map(c => {
+      const v = lookup.get(`${g}:${c}`);
+      return v == null ? null : v;
+    }));
+    // Per-cell hover customdata = [ctxValue]
+    const customdata = gpuVals.map(_ => ctxVals.map(c => c));
+
+    const surface = {
+      type: 'surface',
+      x: ctxIdx,
+      y: gpuVals,
+      z,
+      customdata,
+      colorscale: 'Viridis',
+      colorbar: { title: { text: 't/s' }, tickfont: { color: '#c9d1d9' }, len: 0.7 },
+      hovertemplate: 'num_ctx: %{customdata:,}<br>num_gpu: %{y}<br>t/s: %{z:.2f}<extra></extra>',
+      connectgaps: true,
+      contours: { z: { show: true, usecolormap: true, project: { z: true } } },
+      lighting: { ambient: 0.7, diffuse: 0.5, specular: 0.2 },
+    };
+
+    // Measured-point markers
+    const px = [], py = [], pz = [], pc = [];
+    m.points.forEach(([g, c, t]) => {
+      px.push(ctxVals.indexOf(c));
+      py.push(g);
+      pz.push(t);
+      pc.push(c);
+    });
+    const markers = {
+      type: 'scatter3d',
+      mode: 'markers',
+      x: px, y: py, z: pz,
+      customdata: pc,
+      marker: { size: 3, color: 'white', line: { width: 1, color: '#000' } },
+      hovertemplate: 'measured<br>num_ctx: %{customdata:,}<br>num_gpu: %{y}<br>t/s: %{z:.2f}<extra></extra>',
+      name: 'Measured cells',
+      showlegend: true,
+    };
+
+    const traces = [surface, markers];
+
+    // Optimal marker (from tune_results)
+    if (m.optimalGpu != null && m.optimalCtx != null && m.optimalTps != null) {
+      // snap optimalCtx to nearest tested ctx index so the marker sits on the surface
+      let nearestIdx = 0, nearestDiff = Infinity;
+      ctxVals.forEach((c, i) => { const d = Math.abs(c - m.optimalCtx); if (d < nearestDiff) { nearestIdx = i; nearestDiff = d; } });
+      traces.push({
+        type: 'scatter3d',
+        mode: 'markers+text',
+        x: [nearestIdx],
+        y: [m.optimalGpu],
+        z: [m.optimalTps],
+        marker: { size: 7, color: '#3fb950', symbol: 'diamond', line: { width: 1, color: '#000' } },
+        text: [`★ optimal: gpu=${m.optimalGpu}, ctx=${m.optimalCtx.toLocaleString()}`],
+        textposition: 'top center',
+        textfont: { color: '#3fb950', size: 11 },
+        hovertemplate: `optimal<br>num_ctx: ${m.optimalCtx.toLocaleString()}<br>num_gpu: %{y}<br>t/s: %{z:.2f}<extra></extra>`,
+        name: 'Optimal',
+      });
+    }
+
+    Plotly.newPlot(plotDiv, traces, {
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      margin: { l: 0, r: 0, t: 8, b: 0 },
+      scene: {
+        xaxis: {
+          title: { text: 'num_ctx' },
+          color: '#c9d1d9',
+          gridcolor: '#30363d',
+          tickvals: ctxIdx,
+          ticktext: ctxLabels,
+        },
+        yaxis: { title: { text: 'num_gpu (layers)' }, color: '#c9d1d9', gridcolor: '#30363d' },
+        zaxis: { title: { text: 'tokens/sec' }, color: '#c9d1d9', gridcolor: '#30363d' },
+        camera: { eye: { x: 1.6, y: -1.6, z: 1.0 } },
+        bgcolor: 'rgba(0,0,0,0)',
+      },
+      legend: { font: { color: '#c9d1d9', size: 11 }, bgcolor: 'rgba(0,0,0,0)' },
+      height: 600,
+    }, { responsive: true, displaylogo: false });
+
+    const cells = m.points.length;
+    const fit   = m.vramFit ? ' · ✓ VRAM-fit' : (m.vramFit === false ? ' · ✗ Over VRAM' : '');
+    const size  = m.sizeGB != null ? ` · ${m.sizeGB} GB weights` : '';
+    const maxL  = m.maxLayers != null ? ` · ${m.maxLayers} max layers` : '';
+    meta.textContent = `${cells} measured cells (${gpuVals.length} gpu × ${ctxVals.length} ctx)${size}${maxL}${fit}`;
+  }
+
+  function buildMatrix() {
+    if (!sortedModels.length) return;
+    renderMatrix(sortedModels[+sel.value || 0]);
+  }
+  sel.addEventListener('change', () => renderMatrix(sortedModels[+sel.value]));
 }
 
 (function () {
