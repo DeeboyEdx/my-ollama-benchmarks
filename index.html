@@ -56,6 +56,9 @@ h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14
 .filter-btn-type  { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all .15s; }
 .filter-btn-type:hover  { border-color: var(--blue); }
 .filter-btn-type.active { background: rgba(56,139,253,.12); border-color: var(--blue); color: var(--blue); }
+.filter-btn-cap  { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all .15s; }
+.filter-btn-cap:hover  { border-color: var(--blue); }
+.filter-btn-cap.active { background: rgba(56,139,253,.12); border-color: var(--blue); color: var(--blue); }
 
 /* ── Table ───────────────────────────────────────────────────── */
 .tbl-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
@@ -261,6 +264,13 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
       <button class="filter-btn-type active" data-t="all">All</button>
       <button class="filter-btn-type" data-t="Dense">Dense</button>
       <button class="filter-btn-type" data-t="MoE">MoE</button>
+      <span class="filter-label" style="margin-left:16px">Abilities:</span>
+      <button class="filter-btn-cap active" data-c="all">All</button>
+      <button class="filter-btn-cap" data-c="tools" title="Supports function/tool calling">🛠️ Tools</button>
+      <button class="filter-btn-cap" data-c="thinking" title="Exposes reasoning steps">🧠 Thinking</button>
+      <button class="filter-btn-cap" data-c="vision" title="Accepts image input">👁️ Vision</button>
+      <button class="filter-btn-cap" data-c="insert" title="Supports fill-in-the-middle / code insertion">➕ Insert</button>
+      <button class="filter-btn-cap" data-c="audio" title="Accepts audio input">🔊 Audio</button>
     </div>
     <div class="tbl-wrap">
       <table id="tbl">
@@ -686,7 +696,7 @@ const statsRow = document.getElementById('stats-row');
 });
 
 // ── Model table ───────────────────────────────────────────────────────────────
-let sortKey = 'avgTtoS', sortDir = 1, filterMode = 'all', filterType = 'all';
+let sortKey = 'avgTtoS', sortDir = 1, filterMode = 'all', filterType = 'all', filterCap = 'all';
 
 const taskColors = {
   Smoke:       '#388bfd',
@@ -782,6 +792,7 @@ function buildBody() {
   if (filterMode === 'fit')  rows = rows.filter(m =>  m.fitsInVram);
   if (filterMode === 'over') rows = rows.filter(m => !m.fitsInVram);
   if (filterType !== 'all')  rows = rows.filter(m => archOf(m.name) === filterType);
+  if (filterCap !== 'all')   rows = rows.filter(m => (m.bio?.capabilities ?? []).includes(filterCap));
   const col = cols.find(c => c.key === sortKey);
   rows.sort((a, b) => { const av = col.sv(a), bv = col.sv(b); if (av < bv) return -sortDir; if (av > bv) return sortDir; return 0; });
   const tbody = document.getElementById('tbl-body');
@@ -799,6 +810,13 @@ document.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('cl
 document.querySelectorAll('.filter-btn-type').forEach(btn => btn.addEventListener('click', () => {
   filterType = btn.dataset.t;
   document.querySelectorAll('.filter-btn-type').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  buildBody();
+}));
+
+document.querySelectorAll('.filter-btn-cap').forEach(btn => btn.addEventListener('click', () => {
+  filterCap = btn.dataset.c;
+  document.querySelectorAll('.filter-btn-cap').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   buildBody();
 }));
