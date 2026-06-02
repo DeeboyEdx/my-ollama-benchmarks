@@ -1408,7 +1408,11 @@ if (matrixData?.models?.length) {
   document.querySelector('[data-page="matrix"]').style.display = '';
 
   const sel = document.getElementById('matrix-model');
-  const sortedModels = [...matrixData.models].sort((a, b) => a.name.localeCompare(b.name));
+  const sortedModels = [...matrixData.models].sort((a, b) => {
+    const famA = (a.family ?? a.name.split(':')[0]) ?? '';
+    const famB = (b.family ?? b.name.split(':')[0]) ?? '';
+    return famA.localeCompare(famB) || (a.sizeGB ?? 0) - (b.sizeGB ?? 0) || a.name.localeCompare(b.name);
+  });
   sortedModels.forEach((m, i) => {
     const opt = document.createElement('option');
     opt.value = String(i);
