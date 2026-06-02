@@ -1475,23 +1475,46 @@ if (matrixData?.models?.length) {
 
     const traces = [surface, markers];
 
-    // Optimal marker (from tune_results)
-    if (m.optimalGpu != null && m.optimalCtx != null && m.optimalTps != null) {
+    // Optimal marker: prefer the ctx-sweep optimum from tune_results.json.
+    // If that's missing (model has matrix data but no ctx sweep), fall back
+    // to a utility-weighted optimum computed from the matrix itself:
+    //   score = tps * log2(ctx)^alpha   (alpha = 1.0)
+    // This rewards larger-context points that still deliver good t/s, which
+    // matters because raw peak t/s usually sits at minimum ctx — not useful
+    // in practice.
+    let optGpu = m.optimalGpu, optCtx = m.optimalCtx, optTps = m.optimalTps;
+    let optLabel = '★ optimal', optSource = 'ctx-sweep optimum';
+    if (optGpu == null || optCtx == null || optTps == null) {
+      const alpha = 1.0;
+      let best = null;
+      m.points.forEach(([g, c, t]) => {
+        if (c < 2) return;
+        const score = t * Math.pow(Math.log2(c), alpha);
+        if (!best || score > best.score) best = { score, g, c, t };
+      });
+      if (best) {
+        optGpu = best.g; optCtx = best.c; optTps = best.t;
+        optLabel = '★ weighted optimal';
+        optSource = `utility-weighted (tps × log2(ctx)^${alpha}) — no ctx sweep available`;
+      }
+    }
+
+    if (optGpu != null && optCtx != null && optTps != null) {
       // snap optimalCtx to nearest tested ctx index so the marker sits on the surface
       let nearestIdx = 0, nearestDiff = Infinity;
-      ctxVals.forEach((c, i) => { const d = Math.abs(c - m.optimalCtx); if (d < nearestDiff) { nearestIdx = i; nearestDiff = d; } });
+      ctxVals.forEach((c, i) => { const d = Math.abs(c - optCtx); if (d < nearestDiff) { nearestIdx = i; nearestDiff = d; } });
       traces.push({
         type: 'scatter3d',
         mode: 'markers+text',
         x: [nearestIdx],
-        y: [m.optimalGpu],
-        z: [m.optimalTps],
+        y: [optGpu],
+        z: [optTps],
         marker: { size: 7, color: '#3fb950', symbol: 'diamond', line: { width: 1, color: '#000' } },
-        text: [`★ optimal: gpu=${m.optimalGpu}, ctx=${m.optimalCtx.toLocaleString()}`],
+        text: [`${optLabel}: gpu=${optGpu}, ctx=${optCtx.toLocaleString()}`],
         textposition: 'top center',
         textfont: { color: '#3fb950', size: 11 },
-        hovertemplate: `optimal<br>num_ctx: ${m.optimalCtx.toLocaleString()}<br>num_gpu: %{y}<br>t/s: %{z:.2f}<extra></extra>`,
-        name: 'Optimal',
+        hovertemplate: `${optSource}<br>num_ctx: ${optCtx.toLocaleString()}<br>num_gpu: %{y}<br>t/s: %{z:.2f}<extra></extra>`,
+        name: optLabel,
       });
     }
 
