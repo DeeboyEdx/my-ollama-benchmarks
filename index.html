@@ -569,6 +569,11 @@ function showTip(text, e) { tipEl.textContent = text; tipEl.style.display = 'blo
 function showTipHTML(html, e) { tipEl.innerHTML = html; tipEl.style.display = 'block'; positionTip(e); }
 function moveTip(e)        { positionTip(e); }
 function hideTip()         { tipEl.style.display = 'none'; }
+// Mobile: tap anywhere outside the tip (or scroll) closes it. mouseleave never
+// fires on touch, so hover-only dismissal leaves the tip stuck.
+document.addEventListener('click',  e => { if (!e.target.closest('.model-name') && !e.target.closest('#tip')) hideTip(); }, true);
+document.addEventListener('touchstart', e => { if (!e.target.closest('.model-name') && !e.target.closest('#tip')) hideTip(); }, { capture: true, passive: true });
+window.addEventListener('scroll', hideTip, { passive: true });
 function positionTip(e) {
   const m = 14, tw = tipEl.offsetWidth, th = tipEl.offsetHeight;
   let x = e.clientX + m, y = e.clientY - th - m;
