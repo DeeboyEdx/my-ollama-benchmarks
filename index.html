@@ -48,8 +48,9 @@ h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14
 .stat-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ── Filter bar ──────────────────────────────────────────────── */
-.filter-bar  { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.filter-bar  { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; flex-wrap: wrap; }
 .filter-label { color: var(--muted); font-size: 13px; }
+.filter-group { display: inline-flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
 .filter-btn  { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all .15s; }
 .filter-btn:hover  { border-color: var(--blue); }
 .filter-btn.active { background: rgba(56,139,253,.12); border-color: var(--blue); color: var(--blue); }
@@ -134,10 +135,15 @@ footer a { color: var(--blue); text-decoration: none; }
 code { font-family: monospace; background: var(--surface2); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
 
 /* ── Page tabs (top-level) ───────────────────────────────────── */
-.page-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 24px; }
-.ptab { background: none; border: none; padding: 10px 20px; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s; }
+.page-tabs-wrap { position: relative; border-bottom: 2px solid var(--border); margin-bottom: 24px; }
+.page-tabs { display: flex; gap: 0; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: thin; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+.page-tabs::-webkit-scrollbar { height: 4px; }
+.page-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.ptab { background: none; border: none; padding: 10px 20px; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s; white-space: nowrap; flex-shrink: 0; scroll-snap-align: start; }
 .ptab:hover  { color: var(--text); }
 .ptab.active { color: var(--accent); border-color: var(--accent); }
+/* Right-edge fade hints that more tabs are scrollable. Invisible on desktop where everything fits flush. */
+.page-tabs-wrap::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 28px; pointer-events: none; background: linear-gradient(to right, transparent, var(--bg)); }
 
 /* ── Grader comparison ───────────────────────────────────────── */
 .gc-section { display: flex; flex-direction: column; gap: 24px; }
@@ -168,6 +174,10 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
   main   { padding: 16px; }
   header { padding: 16px; }
   #meta-bar { gap: 8px; }
+  .ptab { padding: 8px 12px; font-size: 13px; }
+}
+@media (max-width: 600px) {
+  .filter-group { width: 100%; flex-wrap: wrap; }
 }
 
 #reload-overlay {
@@ -245,32 +255,35 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
 <main>
   <div class="stats-row" id="stats-row"></div>
 
-  <nav class="page-tabs" id="page-tabs">
+  <nav class="page-tabs-wrap">
+    <div class="page-tabs" id="page-tabs">
     <button class="ptab active" data-page="benchmarks">📊 Benchmarks</button>
     <button class="ptab" data-page="graders">🧑‍⚖️ Grader Comparison</button>
     <button class="ptab" data-page="gpu-sweep" style="display:none">🎯 GPU Sweep</button>
     <button class="ptab" data-page="ctx-sweep" style="display:none">📈 Ctx Sweep</button>
     <button class="ptab" data-page="matrix" style="display:none">🌐 3D Surface</button>
+    </div>
   </nav>
 
   <div id="page-benchmarks">
     <h2>Model Comparison</h2>
     <div class="filter-bar">
-      <span class="filter-label">Show:</span>
-      <button class="filter-btn active" data-f="all">All models</button>
-      <button class="filter-btn" data-f="fit">✅ Fits in VRAM</button>
-      <button class="filter-btn" data-f="over">⚠️ CPU Offload</button>
-      <span class="filter-label" style="margin-left:16px">Architecture:</span>
-      <button class="filter-btn-type active" data-t="all">All</button>
-      <button class="filter-btn-type" data-t="Dense">Dense</button>
-      <button class="filter-btn-type" data-t="MoE">MoE</button>
-      <span class="filter-label" style="margin-left:16px">Abilities:</span>
-      <button class="filter-btn-cap active" data-c="all">All</button>
-      <button class="filter-btn-cap" data-c="tools" title="Supports function/tool calling">🛠️ Tools</button>
-      <button class="filter-btn-cap" data-c="thinking" title="Exposes reasoning steps">🧠 Thinking</button>
-      <button class="filter-btn-cap" data-c="vision" title="Accepts image input">👁️ Vision</button>
-      <button class="filter-btn-cap" data-c="insert" title="Supports fill-in-the-middle / code insertion">➕ Insert</button>
-      <button class="filter-btn-cap" data-c="audio" title="Accepts audio input">🔊 Audio</button>
+      <span class="filter-group">
+        <span class="filter-label">Show:</span>
+        <button class="filter-btn active" data-f="all">All</button>
+        <button class="filter-btn" data-f="fit">✅ Fits in VRAM</button>
+        <button class="filter-btn" data-f="over">⚠️ CPU Offload</button>
+      </span>
+      <span class="filter-group">
+        <span class="filter-label">Architecture:</span>
+        <button class="filter-btn-type active" data-t="all">All</button>
+        <button class="filter-btn-type" data-t="Dense">Dense</button>
+        <button class="filter-btn-type" data-t="MoE">MoE</button>
+      </span>
+      <span class="filter-group" id="ability-filters">
+        <span class="filter-label">Abilities:</span>
+        <button class="filter-btn-cap active" data-c="all">All</button>
+      </span>
     </div>
     <div class="tbl-wrap">
       <table id="tbl">
@@ -555,13 +568,9 @@ function positionTip(e) {
 }
 
 // ── Model bios ────────────────────────────────────────────────────────────────
-// Ollama's `architecture` field doesn't distinguish Dense from MoE
-// (e.g. mixtral reports "llama", deepseek-coder-v2 reports "deepseek2").
-// Maintain this small set of known MoE model names. Add entries when you install a new MoE model.
-const MOE_MODELS = new Set([
-  'mixtral:8x7b',
-  'deepseek-coder-v2:16b',
-]);
+// Dense vs MoE is determined at publish time from Ollama's verbose /api/show
+// endpoint, which exposes the GGUF header field "<arch>.expert_count" for MoE
+// models only. See BenchmarkData.psm1. No hand-maintained list needed.
 // Optional editorial notes — appears as a final italic line. Add only where it adds real value.
 const MODEL_NOTES = {
   'mixtral:8x7b':          'MoE — only ~2 of 8 experts active per token, so partial GPU offload often beats full offload.',
@@ -571,7 +580,7 @@ const MODEL_NOTES = {
 };
 // Per-model bio lookup keyed by model name. Pulls from data.js `bio` field.
 const MODEL_BIO_INDEX = Object.fromEntries(models.map(m => [m.name, m]));
-function archOf(name) { return MOE_MODELS.has(name) ? 'MoE' : 'Dense'; }
+function archOf(name) { return MODEL_BIO_INDEX[name]?.bio?.isMoE ? 'MoE' : 'Dense'; }
 function bioHTML(name) {
   const m = MODEL_BIO_INDEX[name];
   if (!m) return `<strong>${name}</strong>`;
@@ -696,7 +705,7 @@ const statsRow = document.getElementById('stats-row');
 });
 
 // ── Model table ───────────────────────────────────────────────────────────────
-let sortKey = 'avgTtoS', sortDir = 1, filterMode = 'all', filterType = 'all', filterCap = 'all';
+let sortKey = 'avgTtoS', sortDir = 1, filterMode = 'all', filterType = 'all', filterCaps = new Set();
 
 const taskColors = {
   Smoke:       '#388bfd',
@@ -746,10 +755,12 @@ const cols = [
     td: m => {
       const td = mkEl('td');
       const span = mkEl('span', { cls: 'model-name', txt: m.name });
-      span.style.cursor = 'help';
+      span.style.cursor = 'pointer';
+      span.title = 'Click to filter by this model’s Architecture + Abilities';
       span.addEventListener('mouseenter', e => showTipHTML(bioHTML(m.name), e));
       span.addEventListener('mousemove',  moveTip);
       span.addEventListener('mouseleave', hideTip);
+      span.addEventListener('click', () => applyModelProfile(m));
       td.appendChild(span);
       return td;
     } },
@@ -792,7 +803,7 @@ function buildBody() {
   if (filterMode === 'fit')  rows = rows.filter(m =>  m.fitsInVram);
   if (filterMode === 'over') rows = rows.filter(m => !m.fitsInVram);
   if (filterType !== 'all')  rows = rows.filter(m => archOf(m.name) === filterType);
-  if (filterCap !== 'all')   rows = rows.filter(m => (m.bio?.capabilities ?? []).includes(filterCap));
+  if (filterCaps.size > 0)   rows = rows.filter(m => { const caps = m.bio?.capabilities ?? []; for (const c of filterCaps) if (!caps.includes(c)) return false; return true; });
   const col = cols.find(c => c.key === sortKey);
   rows.sort((a, b) => { const av = col.sv(a), bv = col.sv(b); if (av < bv) return -sortDir; if (av > bv) return sortDir; return 0; });
   const tbody = document.getElementById('tbl-body');
@@ -814,12 +825,82 @@ document.querySelectorAll('.filter-btn-type').forEach(btn => btn.addEventListene
   buildBody();
 }));
 
-document.querySelectorAll('.filter-btn-cap').forEach(btn => btn.addEventListener('click', () => {
-  filterCap = btn.dataset.c;
-  document.querySelectorAll('.filter-btn-cap').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+// Build Ability filter buttons dynamically from the capability values present
+// across all models. Any capability with at least one model gets a button;
+// completely absent capabilities are skipped. Order: known capabilities first
+// in curated order, then any unknown ones alphabetically.
+const ABILITY_META = {
+  completion: { label: 'Completion', icon: '💬', title: 'Standard text completion' },
+  tools:      { label: 'Tools',      icon: '🛠️', title: 'Supports function/tool calling' },
+  thinking:   { label: 'Thinking',   icon: '🧠', title: 'Exposes reasoning steps' },
+  vision:     { label: 'Vision',     icon: '👁️', title: 'Accepts image input' },
+  insert:     { label: 'Insert',     icon: '➕', title: 'Supports fill-in-the-middle / code insertion' },
+  audio:      { label: 'Audio',      icon: '🔊', title: 'Accepts audio input' },
+};
+const ABILITY_ORDER = ['completion','tools','thinking','vision','insert','audio'];
+
+function buildAbilityFilters() {
+  // Count how many models have each capability. Skip caps that 0 models have
+  // (nothing to filter) and caps that ALL models have (no-op filter button).
+  const counts = new Map();
+  for (const m of models) for (const c of (m.bio?.capabilities ?? [])) counts.set(c, (counts.get(c) ?? 0) + 1);
+  const total = models.length;
+  const present = new Set([...counts.entries()].filter(([_, n]) => n > 0 && n < total).map(([c]) => c));
+  const known   = ABILITY_ORDER.filter(c => present.has(c));
+  const unknown = [...present].filter(c => !ABILITY_META[c]).sort();
+  const ordered = [...known, ...unknown];
+  const host = document.getElementById('ability-filters');
+  for (const c of ordered) {
+    const meta = ABILITY_META[c] ?? { label: c, icon: '', title: c };
+    const btn = mkEl('button', {
+      cls: 'filter-btn-cap',
+      txt: meta.icon ? `${meta.icon} ${meta.label}` : meta.label,
+    });
+    btn.dataset.c = c;
+    btn.title = meta.title;
+    host.appendChild(btn);
+  }
+  document.querySelectorAll('.filter-btn-cap').forEach(btn => btn.addEventListener('click', () => {
+    const c = btn.dataset.c;
+    if (c === 'all') {
+      filterCaps.clear();
+    } else {
+      if (filterCaps.has(c)) filterCaps.delete(c); else filterCaps.add(c);
+    }
+    syncCapButtons();
+    buildBody();
+  }));
+}
+buildAbilityFilters();
+
+function syncCapButtons() {
+  document.querySelectorAll('.filter-btn-cap').forEach(b => {
+    const k = b.dataset.c;
+    const on = (k === 'all') ? filterCaps.size === 0 : filterCaps.has(k);
+    b.classList.toggle('active', on);
+  });
+}
+
+function syncTypeButtons() {
+  document.querySelectorAll('.filter-btn-type').forEach(b => {
+    b.classList.toggle('active', b.dataset.t === filterType);
+  });
+}
+
+// Clicking a model name filters the table to other models sharing its
+// Architecture + Abilities profile. VRAM filter is left alone.
+function applyModelProfile(m) {
+  const known = new Set(Object.keys(ABILITY_META));
+  const present = new Set();
+  for (const x of models) for (const c of (x.bio?.capabilities ?? [])) present.add(c);
+  const caps = (m.bio?.capabilities ?? []).filter(c => present.has(c) && (known.has(c) || true));
+  filterCaps = new Set(caps);
+  filterType = archOf(m.name);
+  syncTypeButtons();
+  syncCapButtons();
   buildBody();
-}));
+  document.getElementById('page-benchmarks')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 buildHeader(); buildBody();
 
