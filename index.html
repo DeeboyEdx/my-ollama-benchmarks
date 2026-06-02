@@ -51,6 +51,7 @@ h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14
 .filter-bar  { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; flex-wrap: wrap; }
 .filter-label { color: var(--muted); font-size: 13px; }
 .filter-group { display: inline-flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+.filter-btns  { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .filter-btn  { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all .15s; }
 .filter-btn:hover  { border-color: var(--blue); }
 .filter-btn.active { background: rgba(56,139,253,.12); border-color: var(--blue); color: var(--blue); }
@@ -177,7 +178,9 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
   .ptab { padding: 8px 12px; font-size: 13px; }
 }
 @media (max-width: 600px) {
-  .filter-group { width: 100%; flex-wrap: wrap; }
+  .filter-group { width: 100%; flex-wrap: nowrap; align-items: flex-start; }
+  .filter-label { padding-top: 5px; flex-shrink: 0; }
+  .filter-btns  { flex: 1; }
   .filter-btn, .filter-btn-type, .filter-btn-cap { padding: 4px 9px; font-size: 13px; }
   .filter-bar { gap: 8px; }
 }
@@ -272,19 +275,25 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
     <div class="filter-bar">
       <span class="filter-group">
         <span class="filter-label">Show:</span>
-        <button class="filter-btn active" data-f="all">All</button>
-        <button class="filter-btn" data-f="fit">✅ Fits in VRAM</button>
-        <button class="filter-btn" data-f="over">⚠️ CPU Offload</button>
+        <span class="filter-btns">
+          <button class="filter-btn active" data-f="all">All</button>
+          <button class="filter-btn" data-f="fit">✅ Fits in VRAM</button>
+          <button class="filter-btn" data-f="over">⚠️ CPU Offload</button>
+        </span>
       </span>
       <span class="filter-group">
         <span class="filter-label">Architecture:</span>
-        <button class="filter-btn-type active" data-t="all">All</button>
-        <button class="filter-btn-type" data-t="Dense">Dense</button>
-        <button class="filter-btn-type" data-t="MoE">MoE</button>
+        <span class="filter-btns">
+          <button class="filter-btn-type active" data-t="all">All</button>
+          <button class="filter-btn-type" data-t="Dense">Dense</button>
+          <button class="filter-btn-type" data-t="MoE">MoE</button>
+        </span>
       </span>
-      <span class="filter-group" id="ability-filters">
+      <span class="filter-group">
         <span class="filter-label">Abilities:</span>
-        <button class="filter-btn-cap active" data-c="all">All</button>
+        <span class="filter-btns" id="ability-filters">
+          <button class="filter-btn-cap active" data-c="all">All</button>
+        </span>
       </span>
     </div>
     <div class="tbl-wrap">
