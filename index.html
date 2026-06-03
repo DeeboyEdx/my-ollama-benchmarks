@@ -2138,11 +2138,11 @@ if (matrixData?.models?.length) {
 
     const narrow = window.innerWidth < 600;
     // Base height on plot width (not innerHeight) so the aspect stays consistent
-    // across phones of different heights — otherwise a taller phone gets a much
-    // taller plot, which leaves a big empty gap between the top-anchored ★ optimal
-    // annotation and the 3D scene below.
+    // across phones of different heights. Keep it close to square — taller than
+    // that just leaves dead space below the cube (plotly cube-aspects the scene
+    // to fit the smaller dimension).
     const width = plotDiv.clientWidth || window.innerWidth;
-    const height = narrow ? Math.max(420, Math.min(540, Math.round(width * 1.25))) : 600;
+    const height = narrow ? Math.max(380, Math.min(460, Math.round(width * 1.05))) : 600;
 
     // On mobile, show the full optimal config as an annotation inside the plot
     // (above the 3D scene), since the in-scene text label gets shortened.
