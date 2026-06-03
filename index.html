@@ -254,7 +254,6 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
   .page-tabs-wrap { display: none; }
   .page-pager { display: flex; }
 }
-}
 
 #reload-overlay {
   display: none; position: fixed; inset: 0; z-index: 9999;
@@ -1818,7 +1817,7 @@ if (matrixData?.models?.length) {
     Plotly.newPlot(plotDiv, traces, {
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: 'rgba(0,0,0,0)',
-      margin: { l: 0, r: 0, t: narrow ? 22 : 8, b: narrow ? 24 : 0 },
+      margin: { l: 0, r: narrow ? 0 : 80, t: narrow ? 22 : 8, b: narrow ? 24 : 0 },
       annotations,
       scene: {
         xaxis: {
@@ -1838,7 +1837,7 @@ if (matrixData?.models?.length) {
       },
       legend: narrow
         ? { font: { color: '#c9d1d9', size: 10 }, bgcolor: 'rgba(0,0,0,0)', orientation: 'h', x: 0, y: 0, yanchor: 'top' }
-        : { font: { color: '#c9d1d9', size: 11 }, bgcolor: 'rgba(0,0,0,0)' },
+        : { font: { color: '#c9d1d9', size: 11 }, bgcolor: 'rgba(0,0,0,0)', x: 0, xanchor: 'left', y: 1, yanchor: 'top' },
       height,
     }, {
       responsive: true,
@@ -1849,6 +1848,10 @@ if (matrixData?.models?.length) {
     // Thinner colorbar on narrow viewports to claw back plot width.
     if (narrow) {
       Plotly.restyle(plotDiv, { 'colorbar.thickness': 10, 'colorbar.len': 0.6, 'colorbar.x': 1.02 }, [0]);
+    } else {
+      // Pull the desktop colorbar inside the right margin we reserved above
+      // and shorten it slightly so its title/labels stay clear of the legend.
+      Plotly.restyle(plotDiv, { 'colorbar.thickness': 14, 'colorbar.len': 0.65, 'colorbar.x': 0.98, 'colorbar.xanchor': 'left' }, [0]);
     }
 
     const cells = m.points.length;
@@ -1889,7 +1892,9 @@ if (matrixData?.models?.length) {
     return h;
   }
 
+  let overlayShown = false;
   async function checkForUpdate() {
+    if (overlayShown) return;
     try {
       const r = await fetch(location.href, { cache: 'no-store' });
       if (!r.ok) return;
@@ -1897,6 +1902,7 @@ if (matrixData?.models?.length) {
       if (pageHash === null) { pageHash = h; return; }
       if (h === pageHash) return;
 
+      overlayShown = true;
       document.getElementById('reload-overlay').classList.add('visible');
       let secs = 3;
       const cd = document.getElementById('reload-countdown');
