@@ -146,6 +146,73 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
 /* Right-edge fade hints that more tabs are scrollable. Invisible on desktop where everything fits flush. */
 .page-tabs-wrap::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 28px; pointer-events: none; background: linear-gradient(to right, transparent, var(--bg)); }
 
+/* Mobile-only: segmented pager (‹ current ›). Hidden on desktop. */
+.page-pager { display: none; align-items: center; gap: 12px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.page-pager-arrow {
+  flex-shrink: 0;
+  width: 46px; height: 46px; border-radius: 50%;
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .25s cubic-bezier(.4,0,.2,1);
+  position: relative; overflow: hidden;
+}
+.page-pager-arrow svg { width: 18px; height: 18px; transition: transform .25s cubic-bezier(.4,0,.2,1); }
+.page-pager-arrow:hover:not(:disabled) { border-color: var(--accent); background: rgba(88,166,255,0.12); box-shadow: 0 0 20px rgba(88,166,255,0.25); }
+.page-pager-arrow#page-pager-prev:hover:not(:disabled) svg { transform: translateX(-2px); }
+.page-pager-arrow#page-pager-next:hover:not(:disabled) svg { transform: translateX( 2px); }
+.page-pager-arrow:active:not(:disabled) { transform: scale(0.92); }
+.page-pager-arrow:disabled { opacity: 0.2; cursor: default; }
+
+/* Conic-gradient animated border wrapper. */
+.page-pager-current {
+  flex: 1; position: relative;
+  border-radius: 16px;
+  padding: 1.5px;
+  background: conic-gradient(from var(--ang, 0deg), var(--accent), rgba(88,166,255,0.15), var(--accent));
+  animation: pagerSpin 6s linear infinite;
+  touch-action: pan-y;
+  user-select: none;
+}
+@property --ang { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+@keyframes pagerSpin { to { --ang: 360deg; } }
+.page-pager-inner {
+  position: relative;
+  background: rgba(13,17,23,0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 14.5px;
+  padding: 14px 16px 10px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  overflow: hidden;
+  transition: transform .18s cubic-bezier(.4,0,.2,1);
+}
+.page-pager-current.pop .page-pager-inner { transform: scale(0.97); }
+#page-pager-label {
+  display: block;
+  color: var(--text);
+  font-weight: 600; font-size: 17px;
+  letter-spacing: 0.2px;
+  transition: transform .28s cubic-bezier(.4,0,.2,1), opacity .22s ease, filter .22s ease;
+}
+.page-pager-current.slide-left  #page-pager-label { transform: translateX(-18px); opacity: 0; filter: blur(4px); }
+.page-pager-current.slide-right #page-pager-label { transform: translateX( 18px); opacity: 0; filter: blur(4px); }
+.page-pager-dots { display: flex; gap: 6px; margin-top: 9px; }
+.page-pager-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: rgba(255,255,255,0.18);
+  transition: all .28s cubic-bezier(.4,0,.2,1);
+}
+.page-pager-dot.active {
+  background: var(--accent);
+  width: 22px; border-radius: 3px;
+  box-shadow: 0 0 8px rgba(88,166,255,0.7);
+}
+
 /* ── Grader comparison ───────────────────────────────────────── */
 .gc-section { display: flex; flex-direction: column; gap: 24px; }
 .gc-leaderboard { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -183,6 +250,10 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
   .filter-btns  { flex: 1; }
   .filter-btn, .filter-btn-type, .filter-btn-cap { padding: 4px 9px; font-size: 13px; }
   .filter-bar { gap: 8px; }
+  /* Swap tab bar for pager on small screens. */
+  .page-tabs-wrap { display: none; }
+  .page-pager { display: flex; }
+}
 }
 
 #reload-overlay {
@@ -269,6 +340,20 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
     <button class="ptab" data-page="matrix" style="display:none">🌐 3D Surface</button>
     </div>
   </nav>
+  <div class="page-pager" id="page-pager" role="navigation" aria-label="Page navigation">
+    <button class="page-pager-arrow" id="page-pager-prev" aria-label="Previous page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+    <div class="page-pager-current" id="page-pager-current">
+      <div class="page-pager-inner">
+        <span id="page-pager-label">📊 Benchmarks</span>
+        <div class="page-pager-dots" id="page-pager-dots"></div>
+      </div>
+    </div>
+    <button class="page-pager-arrow" id="page-pager-next" aria-label="Next page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </button>
+  </div>
 
   <div id="page-benchmarks">
     <h2>Model Comparison</h2>
@@ -1170,21 +1255,90 @@ accsEl.appendChild(makeAcc('Data Sources', body => {
 let ctxSweepBuilt = false;
 let gpuSweepBuilt = false;
 let matrixBuilt   = false;
-document.querySelectorAll('.ptab').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    const page = btn.dataset.page;
+
+function visibleTabs() {
+  return [...document.querySelectorAll('.ptab')].filter(b => b.style.display !== 'none');
+}
+function refreshPager() {
+  const tabs = visibleTabs();
+  const active = document.querySelector('.ptab.active');
+  const idx = Math.max(0, tabs.indexOf(active));
+  document.getElementById('page-pager-label').textContent = active ? active.textContent.trim() : '';
+  const dotsEl = document.getElementById('page-pager-dots');
+  dotsEl.innerHTML = '';
+  tabs.forEach((_, i) => {
+    const d = document.createElement('span');
+    d.className = 'page-pager-dot' + (i === idx ? ' active' : '');
+    dotsEl.appendChild(d);
+  });
+  document.getElementById('page-pager-prev').disabled = idx <= 0;
+  document.getElementById('page-pager-next').disabled = idx >= tabs.length - 1;
+}
+function activatePage(page, direction) {
+  const cur = document.getElementById('page-pager-current');
+  const doSwap = () => {
+    document.querySelectorAll('.ptab').forEach(b => b.classList.toggle('active', b.dataset.page === page));
     document.getElementById('page-benchmarks').style.display = page === 'benchmarks' ? '' : 'none';
     document.getElementById('page-graders').style.display    = page === 'graders'    ? '' : 'none';
     document.getElementById('page-ctx-sweep').style.display  = page === 'ctx-sweep'  ? '' : 'none';
     document.getElementById('page-gpu-sweep').style.display  = page === 'gpu-sweep'  ? '' : 'none';
-    document.getElementById('page-matrix').style.display      = page === 'matrix'     ? '' : 'none';
+    document.getElementById('page-matrix').style.display     = page === 'matrix'     ? '' : 'none';
     if (page === 'ctx-sweep' && !ctxSweepBuilt) { buildCtxSweep(); ctxSweepBuilt = true; }
     if (page === 'gpu-sweep' && !gpuSweepBuilt) { buildGpuSweep(); gpuSweepBuilt = true; }
     if (page === 'matrix' && !matrixBuilt) { buildMatrix(); matrixBuilt = true; }
-  });
+    refreshPager();
+    if (direction && cur) {
+      cur.classList.remove('slide-left', 'slide-right');
+      cur.classList.add(direction === 'next' ? 'slide-right' : 'slide-left');
+      cur.classList.add('pop');
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        cur.classList.remove('slide-left', 'slide-right', 'pop');
+      }));
+    }
+  };
+  if (direction && cur) {
+    cur.classList.add(direction === 'next' ? 'slide-left' : 'slide-right');
+    cur.classList.add('pop');
+    setTimeout(doSwap, 200);
+  } else {
+    doSwap();
+  }
+}
+document.querySelectorAll('.ptab').forEach(btn => {
+  btn.addEventListener('click', () => activatePage(btn.dataset.page));
 });
+function stepPage(delta) {
+  const tabs = visibleTabs();
+  const idx = tabs.indexOf(document.querySelector('.ptab.active'));
+  const next = idx + delta;
+  if (next >= 0 && next < tabs.length) activatePage(tabs[next].dataset.page, delta > 0 ? 'next' : 'prev');
+}
+document.getElementById('page-pager-prev').addEventListener('click', () => stepPage(-1));
+document.getElementById('page-pager-next').addEventListener('click', () => stepPage( 1));
+
+// Swipe support on the center pill.
+(function() {
+  const pill = document.getElementById('page-pager-current');
+  if (!pill) return;
+  let startX = 0, startY = 0, tracking = false;
+  pill.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) return;
+    startX = e.touches[0].clientX; startY = e.touches[0].clientY; tracking = true;
+  }, { passive: true });
+  pill.addEventListener('touchend', e => {
+    if (!tracking) return;
+    tracking = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX, dy = t.clientY - startY;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) stepPage(dx < 0 ? 1 : -1);
+  }, { passive: true });
+})();
+
+// Re-evaluate pager whenever a top tab's visibility changes (sweep/3D unhide after data loads).
+new MutationObserver(refreshPager).observe(document.getElementById('page-tabs'), {
+  attributes: true, subtree: true, attributeFilter: ['style'],
+});
+refreshPager();
 
 // ── Grader Comparison ─────────────────────────────────────────────────────────
 const gc = D.graderComparison;
