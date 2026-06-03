@@ -1579,11 +1579,25 @@ function applyModelHighlight() {
     applyModelHighlight._spotlightTimer = null;
   }
   const name = currentModelParam();
-  if (!name) return;
+  if (!name) {
+    // URL no longer has a model — reset the once-per-session consumed flag so
+    // navigating back to a model URL replays the animation.
+    applyModelHighlight._consumedFor = null;
+    return;
+  }
   const wanted = name.toLowerCase();
+  // If the URL switched to a different model, reset consumed so the new model animates.
+  if (applyModelHighlight._consumedFor && applyModelHighlight._consumedFor !== wanted) {
+    applyModelHighlight._consumedFor = null;
+  }
   document.querySelectorAll('[data-model]').forEach(el => {
     if (el.closest('[id^="page-"]')?.style.display === 'none') return;
     if (el.dataset.model.toLowerCase() === wanted) {
+      // Benchmark-table rows: only animate the FIRST time this session for a given
+      // model. Subsequent applyModelHighlight calls (filter / sort / click) no-op
+      // for TR so they don't restart the spotlight/flash animations.
+      if (el.tagName === 'TR' && applyModelHighlight._consumedFor === wanted) return;
+
       el.classList.add('model-highlight', 'pulse');
       // Pulse animation runs 5 iterations (~12s) then we strip the class so it
       // doesn't replay if re-rendered. Static glow remains.
@@ -1592,13 +1606,18 @@ function applyModelHighlight() {
         applyModelHighlight._scrolled = true;
         setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
       }
-      // Benchmark-table rows: spotlight + amber flash for ~5s, then blue glow
-      // remains for ~15s total. Click outside dismisses immediately + clears URL.
+      // Benchmark-table rows: spotlight + amber flash for ~3s, then soft blue
+      // border remains until ~8s. Click outside (during spotlight) dismisses
+      // immediately + clears URL.
       if (el.tagName === 'TR') {
         el.classList.add('spotlight');
+        applyModelHighlight._consumedFor = wanted;  // mark animation kicked off
         const fullDismiss = (clearUrl) => {
           el.classList.remove('model-highlight', 'pulse', 'spotlight');
-          if (clearUrl) syncUrlForModel(null);
+          if (clearUrl) {
+            syncUrlForModel(null);
+            applyModelHighlight._consumedFor = null;  // explicit dismiss — allow replay
+          }
           if (applyModelHighlight._dismissHandler) {
             document.removeEventListener('click', applyModelHighlight._dismissHandler, true);
             applyModelHighlight._dismissHandler = null;
@@ -1606,9 +1625,9 @@ function applyModelHighlight() {
           if (applyModelHighlight._dismissTimer) { clearTimeout(applyModelHighlight._dismissTimer); applyModelHighlight._dismissTimer = null; }
           if (applyModelHighlight._spotlightTimer) { clearTimeout(applyModelHighlight._spotlightTimer); applyModelHighlight._spotlightTimer = null; }
         };
-        // Drop spotlight at 3s (dim removed, amber done). Blue glow + pulse remain.
-        // Also stop honoring outside-clicks as "dismiss" — only clicks DURING the
-        // spotlight count as explicit dismissal.
+        // Drop spotlight at 3s (dim removed, amber done). Blue glow remains.
+        // Also stop honoring outside-clicks as "dismiss" — only clicks DURING
+        // the spotlight count as explicit dismissal.
         applyModelHighlight._spotlightTimer = setTimeout(() => {
           el.classList.remove('spotlight');
           if (applyModelHighlight._dismissHandler) {
@@ -1616,7 +1635,7 @@ function applyModelHighlight() {
             applyModelHighlight._dismissHandler = null;
           }
         }, 3000);
-        // Full dismiss (blue glow gone) at 8s. URL kept on timer; cleared on click-out.
+        // Full dismiss (blue glow gone) at 8s. URL preserved so refresh re-plays.
         applyModelHighlight._dismissTimer = setTimeout(() => fullDismiss(false), 8000);
         applyModelHighlight._dismissHandler = (ev) => {
           if (el.contains(ev.target)) return;
