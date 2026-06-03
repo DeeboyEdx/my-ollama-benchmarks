@@ -664,7 +664,7 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
         <option value="optimal">Optimal num_ctx (low → high)</option>
       </select>
     </div>
-    <div id="ctx-sweep-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px"></div>
+    <div id="ctx-sweep-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(380px, 100%),1fr));gap:20px"></div>
   </section>
 </div><!-- #page-ctx-sweep -->
 
@@ -699,7 +699,7 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
         <option value="optimal">Optimal num_gpu (low → high)</option>
       </select>
     </div>
-    <div id="gpu-sweep-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px"></div>
+    <div id="gpu-sweep-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(380px, 100%),1fr));gap:20px"></div>
   </section>
 </div><!-- #page-gpu-sweep -->
 
