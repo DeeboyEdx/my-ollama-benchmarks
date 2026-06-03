@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Model Highlight — Effect Demos</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff;
+    --warn: #f0c674; --warn-soft: rgba(240,198,116,0.18);
+    --good: #56d364;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text);
+         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  .sub { color: var(--muted); margin-bottom: 24px; font-size: 14px; }
+  .controls { margin-bottom: 24px; padding: 12px 16px; background: var(--surface);
+              border: 1px solid var(--border); border-radius: 8px; display: flex;
+              gap: 12px; align-items: center; flex-wrap: wrap; }
+  .controls button { background: var(--accent); color: #0d1117; border: 0;
+                     padding: 6px 14px; border-radius: 5px; font-weight: 600;
+                     cursor: pointer; font-size: 13px; }
+  .controls button.secondary { background: transparent; color: var(--text);
+                               border: 1px solid var(--border); }
+  .controls label { font-size: 13px; color: var(--muted); display: flex;
+                    gap: 6px; align-items: center; cursor: pointer; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+          gap: 18px; }
+  .demo { background: var(--surface); border: 1px solid var(--border);
+          border-radius: 10px; padding: 16px; position: relative; overflow: hidden; }
+  .demo h3 { margin: 0 0 4px; font-size: 15px; color: var(--text); }
+  .demo .desc { color: var(--muted); font-size: 12px; margin-bottom: 14px; min-height: 32px; }
+  .demo .replay { position: absolute; top: 12px; right: 12px; background: transparent;
+                  color: var(--accent); border: 1px solid var(--border); padding: 3px 10px;
+                  border-radius: 4px; font-size: 11px; cursor: pointer; }
+  .demo .replay:hover { background: rgba(88,166,255,.1); }
+
+  /* Mini "table row" stand-in */
+  .mini-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 12px; }
+  .mini-table th { text-align: left; color: var(--muted); font-weight: 500;
+                   padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .mini-table td { padding: 8px; border-bottom: 1px solid var(--border); }
+  .mini-table tr.target td { /* effect applied here */ }
+  .mini-table tr td:first-child { color: var(--accent); font-weight: 500; }
+
+  /* Mini "sweep card" stand-in */
+  .mini-card { border: 1px solid var(--border); border-radius: 8px;
+               padding: 10px 14px; font-size: 12px; display: flex;
+               justify-content: space-between; align-items: center; }
+  .mini-card strong { color: var(--accent); }
+  .mini-card .fake-plot { width: 60px; height: 24px; background: linear-gradient(90deg,
+                          var(--accent) 0%, transparent 70%); opacity: .35; border-radius: 3px; }
+
+  /* Wrapper around the bits we animate, so transforms don't break layout */
+  .target-wrap { position: relative; }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     EFFECTS (each scoped under .fx-N so demos don't bleed into each other)
+     Each effect runs ~5–12s then fades to nothing over the final ~2s.
+     Total: 15s max from .play to invisible.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* fx-1: Bounce-in */
+  @keyframes fx1-bounce {
+    0%   { transform: scale(1); }
+    20%  { transform: scale(1.05); }
+    40%  { transform: scale(0.98); }
+    60%  { transform: scale(1.02); }
+    100% { transform: scale(1); }
+  }
+  .fx-1 .target.play { animation: fx1-bounce 0.9s ease-out 1; box-shadow: 0 0 0 2px var(--accent); }
+  .fx-1 .target.play { animation-fill-mode: both; }
+  .fx-1 .target { transition: box-shadow 2s ease 13s; }
+  .fx-1 .target.play.fade { box-shadow: 0 0 0 0px transparent; }
+
+  /* fx-2: Shake / wiggle */
+  @keyframes fx2-shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50% { transform: translateX(-5px); }
+    20%, 40%, 60% { transform: translateX(5px); }
+    70% { transform: translateX(-3px); } 80% { transform: translateX(3px); }
+    90% { transform: translateX(-1px); }
+  }
+  .fx-2 .target.play { animation: fx2-shake 0.7s ease-in-out 1; box-shadow: 0 0 0 2px var(--accent); transition: box-shadow 2s ease 13s; }
+  .fx-2 .target.play.fade { box-shadow: 0 0 0 0px transparent; }
+
+  /* fx-3: Drop-in (translate from above + fade in) */
+  @keyframes fx3-drop {
+    0%   { transform: translateY(-14px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+  .fx-3 .target.play { animation: fx3-drop 0.55s cubic-bezier(.2,.9,.3,1.3) 1; box-shadow: 0 0 0 2px var(--accent); transition: box-shadow 2s ease 13s; }
+  .fx-3 .target.play.fade { box-shadow: 0 0 0 0px transparent; }
+
+  /* fx-4: Spotlight (dim everything except target) */
+  .fx-4 .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.55);
+                   opacity: 0; transition: opacity .4s ease; pointer-events: none;
+                   z-index: 1; border-radius: 10px; }
+  .fx-4.play .overlay { opacity: 1; }
+  .fx-4.play.fade .overlay { opacity: 0; }
+  .fx-4 .target-wrap { position: relative; }
+  .fx-4 .target.play { position: relative; z-index: 2; background: var(--surface);
+                       box-shadow: 0 0 0 2px var(--accent), 0 0 30px rgba(88,166,255,.5);
+                       border-radius: 6px; }
+
+  /* fx-5: Background flash (GitHub-style yellow/amber wash, fades) */
+  @keyframes fx5-flash {
+    0%   { background-color: var(--warn-soft); }
+    100% { background-color: transparent; }
+  }
+  .fx-5 .target.play td,
+  .fx-5 .target.play.mini-card { animation: fx5-flash 3s ease-out 1; animation-fill-mode: forwards; }
+
+  /* fx-6: Gradient shimmer */
+  @keyframes fx6-shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .fx-6 .target.play { background-image: linear-gradient(110deg,
+                       transparent 30%, rgba(88,166,255,.35) 50%, transparent 70%);
+                       background-size: 200% 100%; background-repeat: no-repeat;
+                       animation: fx6-shimmer 1.4s linear 2;
+                       box-shadow: 0 0 0 1px var(--accent); transition: box-shadow 2s ease 13s; }
+  .fx-6 .target.play.fade { box-shadow: 0 0 0 0px transparent; }
+
+  /* fx-7: Pointer arrow */
+  .fx-7 .pointer { position: absolute; left: -40px; opacity: 0; font-size: 22px;
+                   color: var(--accent); pointer-events: none; transition: opacity .4s ease; }
+  @keyframes fx7-bob {
+    0%, 100% { transform: translateX(0); }
+    50%      { transform: translateX(6px); }
+  }
+  .fx-7.play .pointer { opacity: 1; animation: fx7-bob 0.8s ease-in-out 4; }
+  .fx-7.play.fade .pointer { opacity: 0; }
+
+  /* fx-8: Corner badge (persistent for duration) */
+  .fx-8 .badge { position: absolute; top: -8px; right: -8px; background: var(--accent);
+                 color: #0d1117; padding: 2px 8px; border-radius: 10px; font-size: 10px;
+                 font-weight: 700; opacity: 0; transform: scale(.5);
+                 transition: opacity .3s ease, transform .3s cubic-bezier(.2,.9,.3,1.4); }
+  .fx-8.play .badge { opacity: 1; transform: scale(1); }
+  .fx-8.play.fade .badge { opacity: 0; transform: scale(.5); }
+
+  /* fx-9: Bounce + flash (GitHub permalink style — combo) */
+  .fx-9 .target.play { animation: fx1-bounce 0.9s ease-out 1; }
+  .fx-9 .target.play td,
+  .fx-9 .target.play.mini-card { animation: fx1-bounce 0.9s ease-out 1, fx5-flash 3s ease-out 1; animation-fill-mode: forwards; }
+
+  /* fx-10: Shimmer + persistent badge combo */
+  .fx-10 .target.play { background-image: linear-gradient(110deg,
+                        transparent 30%, rgba(88,166,255,.35) 50%, transparent 70%);
+                        background-size: 200% 100%; background-repeat: no-repeat;
+                        animation: fx6-shimmer 1.4s linear 2; }
+  .fx-10 .badge { position: absolute; top: -8px; right: -8px; background: var(--accent);
+                  color: #0d1117; padding: 2px 8px; border-radius: 10px; font-size: 10px;
+                  font-weight: 700; opacity: 0; transform: scale(.5);
+                  transition: opacity .3s ease, transform .3s cubic-bezier(.2,.9,.3,1.4); }
+  .fx-10.play .badge { opacity: 1; transform: scale(1); }
+  .fx-10.play.fade .badge { opacity: 0; transform: scale(.5); }
+
+  /* fx-11: Spotlight + pulsing background flash (combo) */
+  @keyframes fx11-flash-pulse {
+    0%   { background-color: transparent; }
+    15%  { background-color: var(--warn-soft); }
+    35%  { background-color: transparent; }
+    55%  { background-color: var(--warn-soft); }
+    75%  { background-color: transparent; }
+    100% { background-color: transparent; }
+  }
+  .fx-11 .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.55);
+                    opacity: 0; transition: opacity .4s ease; pointer-events: none;
+                    z-index: 1; border-radius: 10px; }
+  .fx-11.play .overlay { opacity: 1; }
+  .fx-11.play.fade .overlay { opacity: 0; }
+  .fx-11 .target.play { position: relative; z-index: 2; background: var(--surface);
+                        box-shadow: 0 0 0 2px var(--accent), 0 0 30px rgba(88,166,255,.5);
+                        border-radius: 6px; }
+  .fx-11 .target.play td,
+  .fx-11 .target.play.mini-card { animation: fx11-flash-pulse 3.2s ease-in-out 1; animation-fill-mode: forwards; }
+
+  /* ── Reference: current production effect (glow + pulse) ─────────── */
+  @keyframes fx0-pulse {
+    0%   { box-shadow: 0 0 0 2px var(--accent), 0 0 12px  4px rgba(88,166,255,0.35); }
+    50%  { box-shadow: 0 0 0 3px var(--accent), 0 0 28px 12px rgba(88,166,255,0.80); }
+    100% { box-shadow: 0 0 0 2px var(--accent), 0 0 12px  4px rgba(88,166,255,0.35); }
+  }
+  .fx-0 .target.play { animation: fx0-pulse 2.4s ease-in-out 5;
+                       box-shadow: 0 0 0 2px var(--accent), 0 0 18px rgba(88,166,255,.45);
+                       transition: box-shadow 2s ease 13s; }
+  .fx-0 .target.play.fade { box-shadow: 0 0 0 0px transparent; }
+</style>
+</head>
+<body>
+
+<h1>Model Highlight — Effect Demos</h1>
+<div class="sub">
+  Click <strong>▶ Replay</strong> on any tile to re-run that effect. Each effect targets both a
+  table row (top) and a sweep card (bottom). All effects auto-fade to nothing within 15 s.
+</div>
+
+<div class="controls">
+  <button id="play-all">▶ Replay all</button>
+  <button class="secondary" id="stop-all">⏹ Stop / clear</button>
+  <label><input type="checkbox" id="loop"> Loop every 18 s</label>
+</div>
+
+<div class="grid" id="grid">
+  <!-- effects injected by JS so each demo is a clone of the same markup -->
+</div>
+
+<script>
+const EFFECTS = [
+  { id: 0, name: 'Current: pulse glow', desc: 'Production effect — 2px accent border with pulsing soft glow halo, 5 cycles.' },
+  { id: 1, name: '#1 Bounce-in',        desc: 'Quick scale 1 → 1.05 → 1 like an iOS notification, then static accent border.' },
+  { id: 2, name: '#2 Shake / wiggle',   desc: 'Brief horizontal jitter (~700ms) followed by a static accent border.' },
+  { id: 3, name: '#3 Drop-in',          desc: 'Slides in from above with fade-in, like a notification toast.' },
+  { id: 4, name: '#4 Spotlight',        desc: 'Dims everything else in the card so only the target stays lit. Heavy-handed.' },
+  { id: 5, name: '#5 Background flash', desc: 'GitHub-style amber background wash that fades to transparent over 3 s. Familiar pattern.' },
+  { id: 6, name: '#6 Gradient shimmer', desc: 'Diagonal blue sheen sweeps across the element twice. Looks like a "scan".' },
+  { id: 7, name: '#7 Pointer arrow',    desc: 'Animated arrow appears in the left margin and bobs at the target.' },
+  { id: 8, name: '#8 Corner badge',     desc: 'Small accent "selected" pill in the corner — pops in, stays for the duration, fades out.' },
+  { id: 9, name: '#9 Bounce + flash',   desc: 'Combo: bounce-in + GitHub-style amber background flash. Recommended.' },
+  { id:10, name: '#10 Shimmer + badge', desc: 'Combo: shimmer pass + persistent corner badge so the selection is identifiable even after animation ends.' },
+  { id:11, name: '#11 Spotlight + pulsing flash', desc: 'Combo: dims the rest of the card while the target pulses amber 2× (~3 s). Click outside the target to dismiss.' },
+];
+
+const TILE_HTML = `
+  <h3></h3>
+  <div class="desc"></div>
+  <button class="replay">▶ Replay</button>
+  <div class="target-wrap">
+    <span class="pointer">➤</span>
+    <table class="mini-table">
+      <thead><tr><th>Model</th><th>Size</th><th>t/s</th></tr></thead>
+      <tbody>
+        <tr><td>qwen2.5-coder:7b</td><td>4.7 GB</td><td>43.1</td></tr>
+        <tr class="target"><td>phi3:mini</td><td>2.2 GB</td><td>61.5</td>
+          <span class="badge">selected</span></tr>
+        <tr><td>mistral:latest</td><td>4.4 GB</td><td>52.3</td></tr>
+      </tbody>
+    </table>
+    <div class="target mini-card">
+      <span><strong>phi3:mini</strong> &nbsp;— GPU sweep</span>
+      <div class="fake-plot"></div>
+      <span class="badge">selected</span>
+    </div>
+  </div>
+`;
+
+const grid = document.getElementById('grid');
+EFFECTS.forEach(fx => {
+  const tile = document.createElement('div');
+  tile.className = `demo fx-${fx.id}`;
+  tile.innerHTML = TILE_HTML;
+  tile.querySelector('h3').textContent = fx.name;
+  tile.querySelector('.desc').textContent = fx.desc;
+  tile.querySelector('.replay').addEventListener('click', () => playTile(tile));
+  grid.appendChild(tile);
+
+  // fx-4 and fx-11 need an overlay div inside the demo container
+  if (fx.id === 4 || fx.id === 11) {
+    const ov = document.createElement('div');
+    ov.className = 'overlay';
+    tile.appendChild(ov);
+    // Click anywhere in the tile that isn't a .target dismisses the spotlight
+    tile.addEventListener('click', e => {
+      if (!tile.classList.contains('play')) return;
+      if (e.target.closest('.target')) return;
+      if (e.target.closest('.replay')) return;
+      dismissTile(tile);
+    });
+  }
+});
+
+function dismissTile(tile) {
+  tile.classList.add('fade');
+  tile.querySelectorAll('.target').forEach(t => t.classList.add('fade'));
+  setTimeout(() => {
+    tile.classList.remove('play', 'fade');
+    tile.querySelectorAll('.target').forEach(t => t.classList.remove('play', 'fade'));
+  }, 600);
+}
+
+function playTile(tile) {
+  // reset
+  tile.classList.remove('play', 'fade');
+  tile.querySelectorAll('.target').forEach(t => {
+    t.classList.remove('play', 'fade');
+    // force reflow so animations restart cleanly
+    void t.offsetWidth;
+  });
+  void tile.offsetWidth;
+
+  // play
+  tile.classList.add('play');
+  tile.querySelectorAll('.target').forEach(t => t.classList.add('play'));
+
+  // fade-out kicks in at 13s (animations get 2s to fade to nothing → fully gone at 15s)
+  setTimeout(() => {
+    tile.classList.add('fade');
+    tile.querySelectorAll('.target').forEach(t => t.classList.add('fade'));
+  }, 13000);
+  // hard-reset at 15s so a re-trigger plays fresh
+  setTimeout(() => {
+    tile.classList.remove('play', 'fade');
+    tile.querySelectorAll('.target').forEach(t => t.classList.remove('play', 'fade'));
+  }, 15500);
+}
+
+document.getElementById('play-all').addEventListener('click', () => {
+  document.querySelectorAll('.demo').forEach(playTile);
+});
+document.getElementById('stop-all').addEventListener('click', () => {
+  document.querySelectorAll('.demo').forEach(t => {
+    t.classList.remove('play', 'fade');
+    t.querySelectorAll('.target').forEach(x => x.classList.remove('play','fade'));
+  });
+});
+
+let loopTimer = null;
+document.getElementById('loop').addEventListener('change', e => {
+  if (e.target.checked) {
+    loopTimer = setInterval(() => document.querySelectorAll('.demo').forEach(playTile), 18000);
+    document.querySelectorAll('.demo').forEach(playTile);
+  } else {
+    clearInterval(loopTimer);
+  }
+});
+
+// Auto-play once on load
+window.addEventListener('load', () => {
+  setTimeout(() => document.querySelectorAll('.demo').forEach(playTile), 300);
+});
+</script>
+</body>
+</html>
