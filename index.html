@@ -255,9 +255,9 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
 .opt-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .opt-table th, .opt-table td { padding: 9px 12px; border: 1px solid var(--border); text-align: left; }
 .opt-table th { background: var(--surface2); color: var(--muted); font-weight: 600; white-space: nowrap; }
-.opt-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.opt-table td.num { text-align: left; font-variant-numeric: tabular-nums; }
 .opt-table td.method { font-weight: 600; }
-.opt-table td.dash { color: var(--muted); text-align: center; }
+.opt-table td.dash { color: var(--muted); text-align: left; }
 .opt-table tr.winner td { background: rgba(63,185,80,0.13); }
 .opt-table tr.winner td.method::before { content: '★ '; color: #3fb950; }
 .opt-table .src { font-size: 11px; color: var(--muted); }
@@ -660,7 +660,7 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
     <div style="margin:0 0 16px;display:flex;gap:8px;align-items:center;font-size:13px">
       <label for="ctx-sort" style="color:var(--muted)">Sort by:</label>
       <select id="ctx-sort" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:13px">
-        <option value="name">Model name (A–Z)</option>
+        <option value="name" selected hidden>Model name (A–Z)</option>
         <option value="arch">Architecture (Dense/MoE)</option>
         <option value="family">Family</option>
         <option value="tps">t/s (high → low)</option>
@@ -695,9 +695,9 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
     <div style="margin:0 0 16px;display:flex;gap:8px;align-items:center;font-size:13px">
       <label for="gpu-sort" style="color:var(--muted)">Sort by:</label>
       <select id="gpu-sort" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:13px">
+        <option value="name" selected hidden>Model name (A–Z)</option>
         <option value="arch">Architecture (Dense/MoE)</option>
         <option value="family">Family</option>
-        <option value="name">Model name (A–Z)</option>
         <option value="tps">t/s (high → low)</option>
         <option value="size">Size (small → large)</option>
         <option value="optimal">Optimal num_gpu (low → high)</option>
@@ -948,7 +948,7 @@ function gradeTd(m, task) {
 }
 
 const cols = [
-  { key: 'name',        label: 'Model',           sv: m => m.name ?? '',
+  { key: 'name',        label: 'Model',           sv: m => [m.name.split(':')[0], (m.sizeGB ?? 0), m.name],
     td: m => {
       const td = mkEl('td');
       const span = mkEl('span', { cls: 'model-name', txt: m.name });
@@ -1002,7 +1002,20 @@ function buildBody() {
   if (filterType !== 'all')  rows = rows.filter(m => archOf(m.name) === filterType);
   if (filterCaps.size > 0)   rows = rows.filter(m => { const caps = m.bio?.capabilities ?? []; for (const c of filterCaps) if (!caps.includes(c)) return false; return true; });
   const col = cols.find(c => c.key === sortKey);
-  rows.sort((a, b) => { const av = col.sv(a), bv = col.sv(b); if (av < bv) return -sortDir; if (av > bv) return sortDir; return 0; });
+  const cmpVals = (av, bv) => {
+    if (Array.isArray(av) && Array.isArray(bv)) {
+      for (let i = 0; i < Math.max(av.length, bv.length); i++) {
+        const r = cmpVals(av[i], bv[i]);
+        if (r) return r;
+      }
+      return 0;
+    }
+    if (typeof av === 'string' && typeof bv === 'string') {
+      return av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+    }
+    if (av < bv) return -1; if (av > bv) return 1; return 0;
+  };
+  rows.sort((a, b) => sortDir * cmpVals(col.sv(a), col.sv(b)));
   const tbody = document.getElementById('tbl-body');
   tbody.innerHTML = '';
   rows.forEach((m, i) => {
@@ -2257,8 +2270,9 @@ if (matrixData?.models?.length) {
       },
       {
         method: 'Ctx sweep',
-        note: 'largest stable num_ctx at full offload',
-        gpu: gpuRow && gpuRow.maxLayers != null ? gpuRow.maxLayers : null,
+        note: ctxRow ? 'largest stable num_ctx at full offload'
+                     : 'No ctx sweep has been performed for this model.',
+        gpu: ctxRow && gpuRow && gpuRow.maxLayers != null ? gpuRow.maxLayers : null,
         ctx: ctxRow ? ctxRow.optimalCtx : null,
         tps: ctxRow ? ctxRow.optimalTps : null,
         extra: ctxRow && ctxRow.boundedBy ? `bounded by ${ctxRow.boundedBy}` : '',
