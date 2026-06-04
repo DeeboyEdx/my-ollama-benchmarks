@@ -1116,6 +1116,11 @@ function applyModelProfile(m) {
   filterType = archOf(m.name);
   syncTypeButtons();
   syncCapButtons();
+  // Stamp the model into the URL so flipping to another tab highlights it there.
+  // Mark _consumedFor BEFORE buildBody so the spotlight animation doesn't kick
+  // off on the row the user just clicked (they obviously already see it).
+  syncUrlForModel(m.name);
+  applyModelHighlight._consumedFor = m.name.toLowerCase();
   buildBody();
   document.getElementById('page-benchmarks')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -1412,7 +1417,22 @@ function activatePage(page, direction) {
     document.getElementById('page-matrix').style.display     = page === 'matrix'     ? '' : 'none';
     if (page === 'ctx-sweep' && !ctxSweepBuilt) { buildCtxSweep(); ctxSweepBuilt = true; }
     if (page === 'gpu-sweep' && !gpuSweepBuilt) { buildGpuSweep(); gpuSweepBuilt = true; }
-    if (page === 'matrix' && !matrixBuilt) { buildMatrix(); matrixBuilt = true; }
+    if (page === 'matrix') {
+      if (!matrixBuilt) { buildMatrix(); matrixBuilt = true; }
+      else {
+        // Honor ?model= on every activation so flipping in from another tab
+        // (after clicking a model name) re-renders the 3D plot for that model.
+        const sel = document.getElementById('matrix-model');
+        const want = currentModelParam();
+        if (sel && want) {
+          const opt = [...sel.options].find(o => o.textContent.toLowerCase() === want.toLowerCase());
+          if (opt && sel.value !== opt.value) {
+            sel.value = opt.value;
+            sel.dispatchEvent(new Event('change'));
+          }
+        }
+      }
+    }
     refreshPager();
     syncUrlForPage(page);
     applyModelHighlight._scrolled = false;
