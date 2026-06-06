@@ -62,6 +62,9 @@ h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14
 .filter-btn-cap  { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all .15s; }
 .filter-btn-cap:hover  { border-color: var(--blue); }
 .filter-btn-cap.active { background: rgba(56,139,253,.12); border-color: var(--blue); color: var(--blue); }
+.filter-select { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: border-color .15s; }
+.filter-select:hover, .filter-select:focus { border-color: var(--blue); outline: none; }
+.filter-select.active { background: rgba(56,139,253,.12); border-color: var(--blue); color: var(--blue); }
 
 /* ── Table ───────────────────────────────────────────────────── */
 .tbl-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
@@ -451,19 +454,27 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
     <div class="filter-bar">
       <span class="filter-group">
         <span class="filter-label">Show:</span>
-        <span class="filter-btns">
-          <button class="filter-btn active" data-f="all">All</button>
-          <button class="filter-btn" data-f="fit">✅ Fits in VRAM</button>
-          <button class="filter-btn" data-f="over">⚠️ CPU Offload</button>
-        </span>
+        <select id="filter-show" class="filter-select">
+          <option value="all" selected>All</option>
+          <option value="fit">✅ Fits in VRAM</option>
+          <option value="over">⚠️ CPU Offload</option>
+        </select>
       </span>
       <span class="filter-group">
         <span class="filter-label">Architecture:</span>
-        <span class="filter-btns">
-          <button class="filter-btn-type active" data-t="all">All</button>
-          <button class="filter-btn-type" data-t="Dense">Dense</button>
-          <button class="filter-btn-type" data-t="MoE">MoE</button>
-        </span>
+        <select id="filter-arch" class="filter-select">
+          <option value="all" selected>All</option>
+          <option value="Dense">Dense</option>
+          <option value="MoE">MoE</option>
+        </select>
+      </span>
+      <span class="filter-group">
+        <span class="filter-label">Attention:</span>
+        <select id="filter-attn" class="filter-select" title="KV cache architecture — Dense models allocate full KV up-front; SWA/hybrid models use sliding-window attention and allocate less KV per slot">
+          <option value="all" selected>All</option>
+          <option value="dense">Dense KV</option>
+          <option value="swa-or-hybrid">SWA / hybrid</option>
+        </select>
       </span>
       <span class="filter-group">
         <span class="filter-label">Abilities:</span>
@@ -787,6 +798,17 @@ function bioHTML(name) {
   const rows = [];
   if (b.embeddingDim != null)             rows.push(`<tr><td style="color:var(--muted);padding-right:10px">Embedding dim</td><td><strong>${b.embeddingDim.toLocaleString()}</strong></td></tr>`);
   if (b.capabilities?.length)             rows.push(`<tr><td style="color:var(--muted);padding-right:10px">Capabilities</td><td>${b.capabilities.join(', ')}</td></tr>`);
+  if (b.attention) {
+    const isSwa = b.attention === 'swa-or-hybrid';
+    const attnLabel = b.attention === 'dense' ? 'Dense (eager KV)'
+                    : isSwa ? 'SWA / hybrid (lazy KV)'
+                    : b.attention;
+    const sliding = (isSwa && b.slidingWindow) ? ` · window=${b.slidingWindow.toLocaleString()}` : '';
+    rows.push(`<tr><td style="color:var(--muted);padding-right:10px">Attention</td><td>${attnLabel}${sliding}</td></tr>`);
+  }
+  if (b.kvPerSlotMiB != null && b.kvTestedCtx != null) {
+    rows.push(`<tr><td style="color:var(--muted);padding-right:10px">KV / slot</td><td>${(+b.kvPerSlotMiB).toLocaleString()} MiB @ ctx=${b.kvTestedCtx.toLocaleString()}</td></tr>`);
+  }
   const note = MODEL_NOTES[name];
   return `<strong>${name}</strong><br>`
        + `<span style="color:var(--muted)">${head}</span>`
@@ -902,7 +924,7 @@ const statsRow = document.getElementById('stats-row');
 });
 
 // ── Model table ───────────────────────────────────────────────────────────────
-let sortKey = 'avgTtoS', sortDir = 1, filterMode = 'all', filterType = 'all', filterCaps = new Set();
+let sortKey = 'avgTtoS', sortDir = 1, filterMode = 'all', filterType = 'all', filterAttn = 'all', filterCaps = new Set();
 
 const taskColors = {
   Smoke:       '#388bfd',
@@ -953,7 +975,7 @@ const cols = [
       const td = mkEl('td');
       const span = mkEl('span', { cls: 'model-name', txt: m.name });
       span.style.cursor = 'pointer';
-      span.title = 'Click to filter by this model’s Architecture + Abilities';
+      span.title = 'Click to filter by this model’s Architecture + Attention + Abilities';
       span.addEventListener('mouseenter', e => showTipHTML(bioHTML(m.name), e));
       span.addEventListener('mousemove',  moveTip);
       span.addEventListener('mouseleave', hideTip);
@@ -1000,6 +1022,7 @@ function buildBody() {
   if (filterMode === 'fit')  rows = rows.filter(m =>  m.fitsInVram);
   if (filterMode === 'over') rows = rows.filter(m => !m.fitsInVram);
   if (filterType !== 'all')  rows = rows.filter(m => archOf(m.name) === filterType);
+  if (filterAttn !== 'all')  rows = rows.filter(m => (m.bio?.attention ?? 'unknown') === filterAttn);
   if (filterCaps.size > 0)   rows = rows.filter(m => { const caps = m.bio?.capabilities ?? []; for (const c of filterCaps) if (!caps.includes(c)) return false; return true; });
   const col = cols.find(c => c.key === sortKey);
   const cmpVals = (av, bv) => {
@@ -1029,19 +1052,28 @@ function buildBody() {
   applyModelHighlight();
 }
 
-document.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('click', () => {
-  filterMode = btn.dataset.f;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  buildBody();
-}));
+function setSelectActive(sel) {
+  // visual cue that a non-default filter is applied
+  sel.classList.toggle('active', sel.value !== 'all');
+}
 
-document.querySelectorAll('.filter-btn-type').forEach(btn => btn.addEventListener('click', () => {
-  filterType = btn.dataset.t;
-  document.querySelectorAll('.filter-btn-type').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+document.getElementById('filter-show').addEventListener('change', e => {
+  filterMode = e.target.value;
+  setSelectActive(e.target);
   buildBody();
-}));
+});
+
+document.getElementById('filter-arch').addEventListener('change', e => {
+  filterType = e.target.value;
+  setSelectActive(e.target);
+  buildBody();
+});
+
+document.getElementById('filter-attn').addEventListener('change', e => {
+  filterAttn = e.target.value;
+  setSelectActive(e.target);
+  buildBody();
+});
 
 // Build Ability filter buttons dynamically from the capability values present
 // across all models. Any capability with at least one model gets a button;
@@ -1100,13 +1132,22 @@ function syncCapButtons() {
 }
 
 function syncTypeButtons() {
-  document.querySelectorAll('.filter-btn-type').forEach(b => {
-    b.classList.toggle('active', b.dataset.t === filterType);
-  });
+  const sel = document.getElementById('filter-arch');
+  if (sel) { sel.value = filterType; setSelectActive(sel); }
+}
+
+function syncShowSelect() {
+  const sel = document.getElementById('filter-show');
+  if (sel) { sel.value = filterMode; setSelectActive(sel); }
+}
+
+function syncAttnSelect() {
+  const sel = document.getElementById('filter-attn');
+  if (sel) { sel.value = filterAttn; setSelectActive(sel); }
 }
 
 // Clicking a model name filters the table to other models sharing its
-// Architecture + Abilities profile. VRAM filter is left alone.
+// Architecture + Attention + Abilities profile. VRAM filter is left alone.
 function applyModelProfile(m) {
   const known = new Set(Object.keys(ABILITY_META));
   const present = new Set();
@@ -1114,7 +1155,9 @@ function applyModelProfile(m) {
   const caps = (m.bio?.capabilities ?? []).filter(c => present.has(c) && (known.has(c) || true));
   filterCaps = new Set(caps);
   filterType = archOf(m.name);
+  filterAttn = m.bio?.attention ?? 'all';
   syncTypeButtons();
+  syncAttnSelect();
   syncCapButtons();
   // Stamp the model into the URL so flipping to another tab highlights it there.
   // Mark _consumedFor BEFORE buildBody so the spotlight animation doesn't kick
