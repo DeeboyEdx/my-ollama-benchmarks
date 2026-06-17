@@ -238,7 +238,7 @@ code { font-family: monospace; background: var(--surface2); padding: 1px 5px; bo
 .gc-grid-wrap { overflow-x: auto; }
 .gc-grid { border-collapse: collapse; font-size: 12px; }
 .gc-grid th, .gc-grid td { border: 1px solid var(--border); padding: 4px 6px; white-space: nowrap; text-align: center; }
-.gc-grid th { background: var(--surface2); color: var(--muted); font-weight: 600; position: sticky; top: 0; z-index: 2; }
+.gc-grid th { background: var(--surface2); color: var(--muted); font-weight: 600; position: sticky; top: 0; z-index: 2; cursor: pointer; user-select: none; }
 .gc-grid th.row-hdr { text-align: left; min-width: 140px; }
 .gc-grid td.row-hdr { text-align: left; color: var(--muted); font-size: 11px; background: var(--surface); position: sticky; left: 0; z-index: 1; }
 .gc-model-hdr-cell { text-align: left !important; font-size: 11px; font-weight: 700; color: var(--text) !important; background: var(--surface2) !important; padding: 2px 8px 0px !important; border-top: 2px solid var(--border) !important; }
@@ -1758,96 +1758,175 @@ if (gc?.cells?.length && gc?.stats?.length) {
 
   // ── Leaderboard ──
   const lb = document.getElementById('gc-lb');
-  const lbHead = mkEl('thead');
-  lbHead.innerHTML = '<tr><th>#</th><th>Grader Model</th><th class="num">Exact Match</th><th class="num">Within 1 Letter</th><th class="num">Bias</th><th class="num">Graded</th></tr>';
-  lb.appendChild(lbHead);
-  const lbBody = mkEl('tbody');
-  gc.stats.forEach((s, i) => {
-    const tr = mkEl('tr');
-    const biasStr = s.bias > 0 ? `+${s.bias}` : `${s.bias}`;
-    const biasClass = s.bias > 0.2 ? 'bias-pos' : s.bias < -0.2 ? 'bias-neg' : '';
-    tr.innerHTML = `
-      <td style="text-align:center">${medals[i] ?? (i + 1)}</td>
-      <td><code>${s.grader}</code></td>
-      <td class="num"><strong>${s.exactMatch}%</strong></td>
-      <td class="num">${s.within1}%</td>
-      <td class="num ${biasClass}">${biasStr}</td>
-      <td class="num" style="color:var(--muted)">${s.graded}</td>`;
-    lbBody.appendChild(tr);
-  });
-  lb.appendChild(lbBody);
+  const lbCols = [
+    { key: '#',     hdr: '#',              num: true,  sv: s => gc.stats.indexOf(s) },
+    { key: 'model', hdr: 'Grader Model',   num: false, sv: s => s.grader.toLowerCase() },
+    { key: 'exact', hdr: 'Exact Match',    num: true,  sv: s => s.exactMatch },
+    { key: 'w1',    hdr: 'Within 1 Letter',num: true,  sv: s => s.within1 },
+    { key: 'bias',  hdr: 'Bias',           num: true,  sv: s => s.bias },
+    { key: 'n',     hdr: 'Graded',         num: true,  sv: s => s.graded },
+  ];
+  let lbSortKey = 'exact', lbSortDir = -1;
+
+  function renderLeaderboard() {
+    lb.innerHTML = '';
+    const lbHead = mkEl('thead');
+    const htr = mkEl('tr');
+    lbCols.forEach(col => {
+      const th = mkEl('th');
+      th.className = col.num ? 'num' : '';
+      th.textContent = col.hdr;
+      if (col.key === lbSortKey) th.dataset.sort = lbSortDir === 1 ? 'asc' : 'desc';
+      th.addEventListener('click', () => {
+        if (lbSortKey === col.key) lbSortDir *= -1; else { lbSortKey = col.key; lbSortDir = col.num ? -1 : 1; }
+        renderLeaderboard();
+      });
+      htr.appendChild(th);
+    });
+    lbHead.appendChild(htr);
+    lb.appendChild(lbHead);
+
+    const sorted = [...gc.stats];
+    const col = lbCols.find(c => c.key === lbSortKey);
+    sorted.sort((a, b) => {
+      const va = col.sv(a), vb = col.sv(b);
+      return lbSortDir * (typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb)));
+    });
+
+    const lbBody = mkEl('tbody');
+    sorted.forEach((s, i) => {
+      const origRank = gc.stats.indexOf(s);
+      const tr = mkEl('tr');
+      const biasStr = s.bias > 0 ? `+${s.bias}` : `${s.bias}`;
+      const biasClass = s.bias > 0.2 ? 'bias-pos' : s.bias < -0.2 ? 'bias-neg' : '';
+      tr.innerHTML = `
+        <td style="text-align:center">${medals[origRank] ?? (origRank + 1)}</td>
+        <td><code>${s.grader}</code></td>
+        <td class="num"><strong>${s.exactMatch}%</strong></td>
+        <td class="num">${s.within1}%</td>
+        <td class="num ${biasClass}">${biasStr}</td>
+        <td class="num" style="color:var(--muted)">${s.graded}</td>`;
+      lbBody.appendChild(tr);
+    });
+    lb.appendChild(lbBody);
+  }
+  renderLeaderboard();
 
   // ── Grade grid ──
   const gradersRanked = gc.stats.map(s => s.grader);   // already sorted by exactMatch desc
   const grid = document.getElementById('gc-grid');
+  let gcSortCol = null, gcSortDir = -1;  // null = default model-name order
 
-  // Header row
-  const headRow = mkEl('tr');
-  const thEmpty = mkEl('th', { cls: 'row-hdr', txt: 'Model / Task' });
-  headRow.appendChild(thEmpty);
-  const thBase = mkEl('th');
-  thBase.innerHTML = '<span style="color:var(--accent);font-weight:700">🤖 Copilot</span><br><span style="font-weight:400;font-size:10px;color:var(--muted)">baseline</span>';
-  headRow.appendChild(thBase);
-  gradersRanked.forEach((g, i) => {
-    const th = mkEl('th');
-    th.innerHTML = `${medals[i] ?? ''} <code style="font-size:10px">${g}</code>`;
-    headRow.appendChild(th);
-  });
-  const thead = mkEl('thead');
-  thead.appendChild(headRow);
-  grid.appendChild(thead);
-
-  // Data rows — group by graded model
-  const tbody = mkEl('tbody');
-  let lastModel = null;
-  const totalCols = 2 + gradersRanked.length;
+  // Build model groups from cells
+  const gcModelGroups = [];
+  let curGroup = null;
   gc.cells.forEach(cell => {
-    // Thin model-group header row on first task of each model
-    if (cell.gradedModel !== lastModel) {
+    if (!curGroup || cell.gradedModel !== curGroup.model) {
+      curGroup = { model: cell.gradedModel, cells: [] };
+      gcModelGroups.push(curGroup);
+    }
+    curGroup.cells.push(cell);
+  });
+
+  function gcGradeAvg(group, graderKey) {
+    let sum = 0, n = 0;
+    group.cells.forEach(c => {
+      const g = graderKey === '_baseline' ? c.baseline : c[graderKey];
+      if (g && GRADE_SCORE[g] !== undefined) { sum += GRADE_SCORE[g]; n++; }
+    });
+    return n > 0 ? sum / n : -1;
+  }
+
+  function renderGradeGrid() {
+    grid.innerHTML = '';
+
+    // Header row
+    const headRow = mkEl('tr');
+    const thModel = mkEl('th', { cls: 'row-hdr', txt: 'Model / Task' });
+    thModel.style.cursor = 'pointer';
+    if (gcSortCol === '_model') thModel.dataset.sort = gcSortDir === 1 ? 'asc' : 'desc';
+    thModel.addEventListener('click', () => {
+      if (gcSortCol === '_model') gcSortDir *= -1; else { gcSortCol = '_model'; gcSortDir = 1; }
+      renderGradeGrid();
+    });
+    headRow.appendChild(thModel);
+
+    const thBase = mkEl('th');
+    thBase.innerHTML = '<span style="color:var(--accent);font-weight:700">🤖 Copilot</span><br><span style="font-weight:400;font-size:10px;color:var(--muted)">baseline</span>';
+    if (gcSortCol === '_baseline') thBase.dataset.sort = gcSortDir === 1 ? 'asc' : 'desc';
+    thBase.addEventListener('click', () => {
+      if (gcSortCol === '_baseline') gcSortDir *= -1; else { gcSortCol = '_baseline'; gcSortDir = -1; }
+      renderGradeGrid();
+    });
+    headRow.appendChild(thBase);
+
+    gradersRanked.forEach((g, i) => {
+      const th = mkEl('th');
+      th.innerHTML = `${medals[i] ?? ''} <code style="font-size:10px">${g}</code>`;
+      if (gcSortCol === g) th.dataset.sort = gcSortDir === 1 ? 'asc' : 'desc';
+      th.addEventListener('click', () => {
+        if (gcSortCol === g) gcSortDir *= -1; else { gcSortCol = g; gcSortDir = -1; }
+        renderGradeGrid();
+      });
+      headRow.appendChild(th);
+    });
+    const thead = mkEl('thead');
+    thead.appendChild(headRow);
+    grid.appendChild(thead);
+
+    // Sort model groups
+    const sorted = [...gcModelGroups];
+    if (gcSortCol === '_model') {
+      sorted.sort((a, b) => gcSortDir * a.model.localeCompare(b.model));
+    } else if (gcSortCol) {
+      sorted.sort((a, b) => gcSortDir * (gcGradeAvg(a, gcSortCol) - gcGradeAvg(b, gcSortCol)));
+    }
+
+    // Data rows
+    const tbody = mkEl('tbody');
+    const totalCols = 2 + gradersRanked.length;
+    sorted.forEach(group => {
       const mRow = mkEl('tr');
-      const mTd  = mkEl('td', { cls: 'gc-model-hdr-cell', txt: cell.gradedModel });
+      const mTd  = mkEl('td', { cls: 'gc-model-hdr-cell', txt: group.model });
       mTd.colSpan = totalCols;
       mRow.appendChild(mTd);
       tbody.appendChild(mRow);
-      lastModel = cell.gradedModel;
-    }
 
-    const tr = mkEl('tr');
+      group.cells.forEach(cell => {
+        const tr = mkEl('tr');
+        const rowHdr = mkEl('td', { cls: 'row-hdr' });
+        rowHdr.innerHTML = `<span>${cell.task}</span>`;
+        tr.appendChild(rowHdr);
 
-    // Row header — task name only
-    const rowHdr = mkEl('td', { cls: 'row-hdr' });
-    rowHdr.innerHTML = `<span>${cell.task}</span>`;
-    tr.appendChild(rowHdr);
+        const bl = cell.baseline || '';
+        const blTd = mkEl('td');
+        if (bl) {
+          const badge = mkEl('span', { cls: `grade g-${bl}`, txt: bl });
+          blTd.appendChild(badge);
+        } else { blTd.textContent = '—'; blTd.style.color = 'var(--muted)'; }
+        tr.appendChild(blTd);
 
-    // Baseline cell
-    const bl = cell.baseline || '';
-    const blTd = mkEl('td');
-    if (bl) {
-      const badge = mkEl('span', { cls: `grade g-${bl}`, txt: bl });
-      blTd.appendChild(badge);
-    } else { blTd.textContent = '—'; blTd.style.color = 'var(--muted)'; }
-    tr.appendChild(blTd);
-
-    // Grader cells
-    gradersRanked.forEach(g => {
-      const gr = cell[g] || '';
-      const td = mkEl('td');
-      if (gr) {
-        const badge = mkEl('span', { cls: `grade g-${gr}`, txt: gr });
-        if (bl && gr !== bl) {
-          const delta = Math.abs((GRADE_SCORE[gr] ?? 0) - (GRADE_SCORE[bl] ?? 0));
-          const tier  = delta >= 4 ? 4 : delta;
-          td.classList.add(`gc-diff-${tier}`);
-          td.dataset.tip = `±${delta} from baseline (${bl})`;
-        }
-        td.appendChild(badge);
-      } else { td.textContent = '—'; td.style.color = 'var(--muted)'; }
-      tr.appendChild(td);
+        gradersRanked.forEach(g => {
+          const gr = cell[g] || '';
+          const td = mkEl('td');
+          if (gr) {
+            const badge = mkEl('span', { cls: `grade g-${gr}`, txt: gr });
+            if (bl && gr !== bl) {
+              const delta = Math.abs((GRADE_SCORE[gr] ?? 0) - (GRADE_SCORE[bl] ?? 0));
+              const tier  = delta >= 4 ? 4 : delta;
+              td.classList.add(`gc-diff-${tier}`);
+              td.dataset.tip = `±${delta} from baseline (${bl})`;
+            }
+            td.appendChild(badge);
+          } else { td.textContent = '—'; td.style.color = 'var(--muted)'; }
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
     });
-
-    tbody.appendChild(tr);
-  });
-  grid.appendChild(tbody);
+    grid.appendChild(tbody);
+  }
+  renderGradeGrid();
 
   // Floating tooltip (instant, avoids overflow clipping)
   const gcTip = mkEl('div');
