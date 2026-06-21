@@ -2179,7 +2179,7 @@ if (matrixData?.models?.length) {
   sortedModels.forEach((m, i) => {
     const opt = document.createElement('option');
     opt.value = String(i);
-    opt.textContent = m.name;
+    opt.textContent = m.removed ? `${m.name} (removed)` : m.name;
     sel.appendChild(opt);
   });
 
@@ -2188,6 +2188,17 @@ if (matrixData?.models?.length) {
   function renderMatrix(m) {
     const plotDiv = document.getElementById('matrix-plot');
     const meta    = document.getElementById('matrix-meta');
+
+    // Show/hide "removed" warning banner
+    let removedBanner = document.getElementById('matrix-removed-banner');
+    if (!removedBanner) {
+      removedBanner = document.createElement('div');
+      removedBanner.id = 'matrix-removed-banner';
+      removedBanner.style.cssText = 'display:none;margin-bottom:10px;padding:8px 14px;background:#3d1f00;border:1px solid #f85149;border-radius:6px;color:#f85149;font-size:13px';
+      removedBanner.textContent = '⚠ This model has been removed from this system. Historical sweep data is preserved for reference.';
+      plotDiv.parentNode.insertBefore(removedBanner, plotDiv);
+    }
+    removedBanner.style.display = m.removed ? '' : 'none';
 
     const gpuVals = m.gpuVals;
     const ctxVals = m.ctxVals;
