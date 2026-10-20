@@ -394,6 +394,36 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
   font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
   font-size: 13px; line-height: 1.65; color: var(--text);
 }
+
+/* ── Battery progress tracker (hidden unless a battery is running) ── */
+#tracker { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 32px; }
+#tracker[hidden] { display: none; }
+#tracker .tk-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+#tracker .tk-title { color: var(--heading); font-weight: 600; font-size: 13px; }
+#tracker .tk-body { display: flex; gap: 24px; align-items: flex-start; }
+#tracker .tk-models { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+#tracker .tk-mhead { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px; }
+#tracker .tk-mname { color: var(--heading); font-weight: 600; }
+#tracker .tk-zlabels, #tracker .tk-bar { display: flex; gap: 3px; }
+#tracker .tk-zl { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#tracker .tk-z { height: 12px; border-radius: 3px; background: var(--surface2); overflow: hidden; min-width: 0; }
+#tracker .tk-bar.tk-bar-cur .tk-z { height: 18px; border-radius: 4px; }
+#tracker .tk-fill { height: 100%; opacity: .95; }
+#tracker .tk-sub { display: flex; justify-content: space-between; font-size: 12px; color: var(--text); margin-top: 3px; }
+#tracker .tk-eta { color: var(--muted); }
+#tracker .tk-battery { flex: 0 0 150px; text-align: right; border-left: 1px solid var(--border); padding-left: 16px; }
+#tracker .tk-battery .tk-big { font-size: 20px; color: var(--heading); font-weight: 700; line-height: 1.2; }
+#tracker .tk-battery .tk-lbl { font-size: 11px; color: var(--muted); }
+#tracker .tk-times { margin-bottom: 8px; font-size: 11px; color: var(--muted); line-height: 1.6; }
+#tracker .tk-times b { color: var(--text); font-weight: 600; }
+#tracker .tk-run { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; padding: 0 8px; border-radius: 10px; font-size: 10px; font-weight: 700; letter-spacing: .06em; color: var(--green); background: rgba(63,185,80,.15); vertical-align: 1px; }
+#tracker .tk-run::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: tk-pulse 1.2s ease-in-out infinite; }
+@keyframes tk-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .25; transform: scale(.7); } }
+@media (prefers-reduced-motion: reduce) { #tracker .tk-run::before { animation: none; } }
+#tracker .tk-zl.tk-cur { color: var(--heading); font-weight: 600; }
+#tracker .tk-queued { color: var(--muted); }
+#tracker .tk-next { display: block; color: var(--muted); font-size: 11px; }
+@media (max-width: 700px) { #tracker { padding: 12px 16px; } #tracker .tk-body { flex-direction: column; } #tracker .tk-battery { border-left: 0; padding-left: 0; text-align: left; flex-basis: auto; } }
 </style>
 </head>
 <body>
@@ -421,6 +451,16 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
   <h1>🦙 Ollama LLM Benchmarks</h1>
   <div id="meta-bar"></div>
 </header>
+
+<section id="tracker" hidden aria-label="Benchmark battery progress">
+  <div class="tk-head"><span class="tk-title">&#9889; Benchmark battery running</span><span id="tk-badge" class="badge badge-blue"></span></div>
+  <div class="tk-body">
+    <div class="tk-models" id="tk-models"></div>
+    <div class="tk-battery">
+      <div class="tk-times" id="tk-times" hidden>Started <b id="tk-start"></b><br>Elapsed <b id="tk-elapsed"></b></div>
+      <div class="tk-lbl tk-fin">Battery finishes</div><div class="tk-big" id="tk-beta"></div><div class="tk-lbl" id="tk-brel"></div></div>
+  </div>
+</section>
 
 <main>
   <div class="stats-row" id="stats-row"></div>
@@ -2533,6 +2573,100 @@ if (matrixData?.models?.length) {
   setTimeout(checkForUpdate, 1500);
   setInterval(checkForUpdate, 60000);
 }());
+
+// ── Battery progress tracker ──────────────────────────────────────────
+// Tiers are tried in order; each gets TK_TIMEOUT_MS. A tier with a null url is skipped.
+// Tailscale url is filled in once TailscaleAdmin provides the host name.
+const TK_P = 0.5;            // zone width = expected_min ** TK_P  (1 = proportional, 0 = equal)
+const TK_MIN_W = 0.06;       // minimum zone width as a fraction of the bar
+const TK_POLL_MS = 10000;
+const TK_TIMEOUT_MS = 2000;
+const TK_TIERS = [
+  { name: 'Tailscale', url: 'https://deehpz440.tail499935.ts.net/progress.json' },  // needs tailscale serve (not enabled yet)
+  { name: 'Local',     url: 'http://localhost:8780/progress.json' },
+  { name: 'Repo',      url: 'progress.json' },
+];
+(function () {
+  const override = new URLSearchParams(location.search).get('tracker');  // dev: ?tracker=<url>
+  const tiers = override ? [{ name: 'Test', url: override }] : TK_TIERS;
+  const $ = id => document.getElementById(id);
+  const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+  function zoneWidths(zones) {
+    const raw = zones.map(z => Math.pow(Math.max(z.expected_min || 1, 0.01), TK_P));
+    const sum = raw.reduce((a, b) => a + b, 0);
+    let w = raw.map(r => Math.max(r / sum, TK_MIN_W));
+    const t = w.reduce((a, b) => a + b, 0);
+    return w.map(x => x / t);
+  }
+  function modelPct(m) {   // time-weighted, not width-weighted
+    const tot = m.zones.reduce((a, z) => a + (z.expected_min || 0), 0);
+    if (!tot) return m.pct || 0;
+    return 100 * m.zones.reduce((a, z) => a + (z.expected_min || 0) * (z.total ? z.done / z.total : 0), 0) / tot;
+  }
+  let started = null;
+  function tickElapsed() {
+    if (!started) return;
+    const s = Math.max(0, Math.floor((Date.now() - started) / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+    $('tk-elapsed').textContent = (h ? h + ' h ' : '') + m + ' min' + (h ? '' : ' ' + String(s % 60).padStart(2, '0') + ' s');
+  }
+  setInterval(tickElapsed, 1000);
+  function fmtEta(iso) {
+    if (!iso) return ['—', ''];
+    const d = new Date(iso), mins = Math.round((d - Date.now()) / 60000);
+    const clock = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const rel = mins <= 0 ? 'any moment' : mins < 90 ? 'in ' + mins + ' min' : 'in ' + (mins / 60).toFixed(1) + ' h';
+    return [clock, rel];
+  }
+  function render(data, tier) {
+    const panel = $('tracker');
+    if (!data || !data.active || !(data.models || []).length) { panel.hidden = true; return; }
+    $('tk-badge').textContent = 'via ' + tier;
+    const box = $('tk-models'); box.replaceChildren();
+    for (const m of data.models) {
+      const row = mk('div'), w = zoneWidths(m.zones), pct = modelPct(m);
+      const head = mk('div', 'tk-mhead'), nm = mk('span', 'tk-mname', m.name);
+      if (m.running) nm.append(mk('span', 'tk-run', 'RUNNING'));
+      head.append(nm, mk('span', null, pct.toFixed(0) + '%'));
+      const labels = mk('div', 'tk-zlabels'), bar = mk('div', m.running ? 'tk-bar tk-bar-cur' : 'tk-bar');
+      const curIdx = m.zones.findIndex(z => z.done < z.total);   // first unfinished zone
+      m.zones.forEach((z, i) => {
+        const cur = m.running && i === curIdx;   // zone being tested: label gets its completion percentage
+        const zpct = z.total ? Math.floor(100 * z.done / z.total) : 0;
+        const l = mk('div', cur ? 'tk-zl tk-cur' : 'tk-zl', cur ? z.label + ' ' + (z.est ? '~' : '') + zpct + '%' : z.label); l.style.flex = w[i] + ' 1 0'; l.title = z.label + ' (~' + z.expected_min + ' min)'; labels.append(l);
+        const zb = mk('div', 'tk-z'); zb.style.flex = w[i] + ' 1 0';
+        const f = mk('div', 'tk-fill'); f.style.background = z.color; f.style.width = (z.total ? 100 * z.done / z.total : 0) + '%';
+        zb.title = z.label + ': ' + z.done + '/' + z.total; zb.append(f); bar.append(zb);
+      });
+      const [clock, rel] = fmtEta(m.eta);
+      const sub = mk('div', 'tk-sub'), left = mk('span', m.running ? null : 'tk-queued');
+      left.append(document.createTextNode(m.step || ''));
+      if (m.next_zone) left.append(mk('span', 'tk-next', 'Next test: ' + m.next_zone));
+      sub.append(left, mk('span', 'tk-eta', 'done ~' + clock + (rel ? ' (' + rel + ')' : '')));
+      row.append(head, labels, bar, sub); box.append(row);
+    }
+    const [bc, br] = fmtEta(data.battery_eta);
+    $('tk-beta').textContent = bc; $('tk-brel').textContent = br;
+    started = data.started ? new Date(data.started) : null;
+    $('tk-times').hidden = !started;
+    if (started) $('tk-start').textContent = started.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    tickElapsed();
+    panel.hidden = false;
+  }
+  async function fetchTier(t) {
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), TK_TIMEOUT_MS);
+    try { const r = await fetch(t.url, { signal: ctl.signal, cache: 'no-store' }); if (!r.ok) throw 0; return await r.json(); }
+    finally { clearTimeout(timer); }
+  }
+  async function poll() {
+    for (const t of tiers) {
+      if (!t.url) continue;
+      try { render(await fetchTier(t), t.name); return; } catch (e) { /* try next tier */ }
+    }
+    render(null);
+  }
+  poll(); setInterval(poll, TK_POLL_MS);
+})();
 </script>
 </body>
 </html>
