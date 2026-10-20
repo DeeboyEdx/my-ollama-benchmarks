@@ -406,9 +406,13 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
 #tracker .tk-mname { color: var(--heading); font-weight: 600; }
 #tracker .tk-zlabels, #tracker .tk-bar { display: flex; gap: 3px; }
 #tracker .tk-zl { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-#tracker .tk-z { height: 12px; border-radius: 3px; background: var(--surface2); overflow: hidden; min-width: 0; }
-#tracker .tk-bar.tk-bar-cur .tk-z { height: 18px; border-radius: 4px; }
-#tracker .tk-fill { height: 100%; opacity: .95; }
+#tracker .tk-z { position: relative; height: 9px; border-radius: 3px; background: var(--surface2); overflow: hidden; min-width: 0; transition: height .5s ease; }
+#tracker .tk-bar.tk-bar-cur .tk-z { height: 18px; }
+#tracker .tk-fill { height: 100%; opacity: .95; transition: width .9s ease; }
+/* unfilled part of the zone under test: slow gray barber-pole stripe, drifting right */
+#tracker .tk-stripe { position: absolute; top: 0; bottom: 0; right: 0; left: 0; transition: left .9s ease; background-size: 22px 22px; animation: tk-stripe 1.4s linear infinite;
+  background-image: linear-gradient(135deg, rgba(128,128,128,.30) 25%, transparent 25%, transparent 50%, rgba(128,128,128,.30) 50%, rgba(128,128,128,.30) 75%, transparent 75%); }
+@keyframes tk-stripe { from { background-position: 0 0; } to { background-position: 22px 0; } }
 #tracker .tk-sub { display: flex; justify-content: space-between; font-size: 12px; color: var(--text); margin-top: 3px; }
 #tracker .tk-eta { color: var(--muted); }
 #tracker .tk-battery { flex: 0 0 150px; text-align: right; border-left: 1px solid var(--border); padding-left: 16px; }
@@ -419,7 +423,7 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
 #tracker .tk-run { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; padding: 0 8px; border-radius: 10px; font-size: 10px; font-weight: 700; letter-spacing: .06em; color: var(--green); background: rgba(63,185,80,.15); vertical-align: 1px; }
 #tracker .tk-run::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: tk-pulse 1.2s ease-in-out infinite; }
 @keyframes tk-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .25; transform: scale(.7); } }
-@media (prefers-reduced-motion: reduce) { #tracker .tk-run::before { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #tracker .tk-run::before, #tracker .tk-stripe { animation: none; } #tracker .tk-z, #tracker .tk-fill, #tracker .tk-stripe { transition: none; } }
 #tracker .tk-zl.tk-cur { color: var(--heading); font-weight: 600; }
 #tracker .tk-queued { color: var(--muted); }
 #tracker .tk-next { display: block; color: var(--muted); font-size: 11px; }
@@ -2618,33 +2622,52 @@ const TK_TIERS = [
     const rel = mins <= 0 ? 'any moment' : mins < 90 ? 'in ' + mins + ' min' : 'in ' + (mins / 60).toFixed(1) + ' h';
     return [clock, rel];
   }
+  const rows = new Map();   // model name -> persistent DOM nodes
+  function buildRow(m) {
+    const r = { sig: m.zones.map(z => z.id).join(), el: mk('div'), zl: [], zb: [], fill: [], strip: [] };
+    r.nm = mk('span', 'tk-mname', m.name); r.pill = mk('span', 'tk-run', 'RUNNING'); r.pct = mk('span');
+    const head = mk('div', 'tk-mhead'); head.append(r.nm, r.pct);
+    r.labels = mk('div', 'tk-zlabels'); r.bar = mk('div', 'tk-bar');
+    m.zones.forEach(() => {
+      const l = mk('div', 'tk-zl'), zb = mk('div', 'tk-z'), f = mk('div', 'tk-fill'), s = mk('div', 'tk-stripe');
+      s.hidden = true; zb.append(f, s); r.labels.append(l); r.bar.append(zb);
+      r.zl.push(l); r.zb.push(zb); r.fill.push(f); r.strip.push(s);
+    });
+    r.left = mk('span'); r.stepText = document.createTextNode(''); r.left.append(r.stepText); r.next = mk('span', 'tk-next'); r.eta = mk('span', 'tk-eta');
+    const sub = mk('div', 'tk-sub'); sub.append(r.left, r.eta);
+    r.el.append(head, r.labels, r.bar, sub);
+    return r;
+  }
   function render(data, tier) {
     const panel = $('tracker');
-    if (!data || !data.active || !(data.models || []).length) { panel.hidden = true; return; }
+    if (!data || !data.active || !(data.models || []).length) { panel.hidden = true; rows.clear(); $('tk-models').replaceChildren(); return; }
     $('tk-badge').textContent = 'via ' + tier;
-    const box = $('tk-models'); box.replaceChildren();
-    for (const m of data.models) {
-      const row = mk('div'), w = zoneWidths(m.zones), pct = modelPct(m);
-      const head = mk('div', 'tk-mhead'), nm = mk('span', 'tk-mname', m.name);
-      if (m.running) nm.append(mk('span', 'tk-run', 'RUNNING'));
-      head.append(nm, mk('span', null, pct.toFixed(0) + '%'));
-      const labels = mk('div', 'tk-zlabels'), bar = mk('div', m.running ? 'tk-bar tk-bar-cur' : 'tk-bar');
-      const curIdx = m.zones.findIndex(z => z.done < z.total);   // first unfinished zone
+    const box = $('tk-models'), seen = new Set();
+    data.models.forEach((m, mi) => {
+      let r = rows.get(m.name);
+      if (!r || r.sig !== m.zones.map(z => z.id).join()) { r = buildRow(m); rows.set(m.name, r); }   // reuse the DOM so CSS transitions animate
+      seen.add(m.name);
+      const w = zoneWidths(m.zones), curIdx = m.zones.findIndex(z => z.done < z.total);   // first unfinished zone
+      r.pct.textContent = modelPct(m).toFixed(0) + '%';
+      if (m.running) { if (!r.pill.isConnected) r.nm.append(r.pill); } else r.pill.remove();
+      r.bar.classList.toggle('tk-bar-cur', !!m.running);
       m.zones.forEach((z, i) => {
         const cur = m.running && i === curIdx;   // zone being tested: label gets its completion percentage
-        const zpct = z.total ? Math.floor(100 * z.done / z.total) : 0;
-        const l = mk('div', cur ? 'tk-zl tk-cur' : 'tk-zl', cur ? z.label + ' ' + (z.est ? '~' : '') + zpct + '%' : z.label); l.style.flex = w[i] + ' 1 0'; l.title = z.label + ' (~' + z.expected_min + ' min)'; labels.append(l);
-        const zb = mk('div', 'tk-z'); zb.style.flex = w[i] + ' 1 0';
-        const f = mk('div', 'tk-fill'); f.style.background = z.color; f.style.width = (z.total ? 100 * z.done / z.total : 0) + '%';
-        zb.title = z.label + ': ' + z.done + '/' + z.total; zb.append(f); bar.append(zb);
+        const frac = z.total ? 100 * z.done / z.total : 0, zpct = Math.floor(frac);
+        const l = r.zl[i]; l.className = cur ? 'tk-zl tk-cur' : 'tk-zl'; l.textContent = cur ? z.label + ' ' + (z.est ? '~' : '') + zpct + '%' : z.label;
+        l.style.flex = w[i] + ' 1 0'; l.title = z.label + ' (~' + z.expected_min + ' min)';
+        r.zb[i].style.flex = w[i] + ' 1 0'; r.zb[i].title = z.label + ': ' + z.done + '/' + z.total;
+        r.fill[i].style.background = z.color; r.fill[i].style.width = frac + '%';
+        r.strip[i].hidden = !cur; r.strip[i].style.left = frac + '%';
       });
       const [clock, rel] = fmtEta(m.eta);
-      const sub = mk('div', 'tk-sub'), left = mk('span', m.running ? null : 'tk-queued');
-      left.append(document.createTextNode(m.step || ''));
-      if (m.next_zone) left.append(mk('span', 'tk-next', 'Next test: ' + m.next_zone));
-      sub.append(left, mk('span', 'tk-eta', 'done ~' + clock + (rel ? ' (' + rel + ')' : '')));
-      row.append(head, labels, bar, sub); box.append(row);
-    }
+      r.left.className = m.running ? '' : 'tk-queued';
+      r.stepText.nodeValue = m.step || '';
+      if (m.next_zone) { r.next.textContent = 'Next test: ' + m.next_zone; if (!r.next.isConnected) r.left.append(r.next); } else r.next.remove();
+      r.eta.textContent = 'done ~' + clock + (rel ? ' (' + rel + ')' : '');
+      if (box.children[mi] !== r.el) box.insertBefore(r.el, box.children[mi] || null);
+    });
+    for (const [name, r] of rows) if (!seen.has(name)) { r.el.remove(); rows.delete(name); }
     const [bc, br] = fmtEta(data.battery_eta);
     $('tk-beta').textContent = bc; $('tk-brel').textContent = br;
     started = data.started ? new Date(data.started) : null;
