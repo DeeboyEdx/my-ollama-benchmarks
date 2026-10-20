@@ -423,8 +423,20 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
 #tracker .tk-run { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; padding: 0 8px; border-radius: 10px; font-size: 10px; font-weight: 700; letter-spacing: .06em; color: var(--green); background: rgba(63,185,80,.15); vertical-align: 1px; }
 #tracker .tk-run::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: tk-pulse 1.2s ease-in-out infinite; }
 @keyframes tk-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .25; transform: scale(.7); } }
-@media (prefers-reduced-motion: reduce) { #tracker .tk-run::before, #tracker .tk-stripe { animation: none; } #tracker .tk-z, #tracker .tk-fill, #tracker .tk-stripe { transition: none; } }
+@media (prefers-reduced-motion: reduce) { #tracker .tk-run::before, #tracker .tk-stripe { animation: none; } #tracker .tk-z, #tracker .tk-fill, #tracker .tk-stripe { transition: none; } #tracker .tk-z.tk-lock, #tracker .tk-z.tk-lock::after { animation: none; } }
 #tracker .tk-zl.tk-cur { color: var(--heading); font-weight: 600; }
+#tracker .tk-done { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; padding: 8px 12px; border-radius: 6px; font-size: 13px; color: var(--heading); background: rgba(63,185,80,.12); border: 1px solid rgba(63,185,80,.35); }
+#tracker .tk-done.tk-failed { background: rgba(248,81,73,.12); border-color: rgba(248,81,73,.4); }
+#tracker .tk-done[hidden] { display: none; }
+#tracker .tk-closing { font-size: 12px; color: var(--muted); white-space: nowrap; }
+#tracker .tk-closing b { color: var(--text); font-variant-numeric: tabular-nums; }
+#tracker .tk-closing button { margin-left: 8px; padding: 2px 10px; font-size: 12px; color: var(--text); background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
+#tracker .tk-closing button:hover { background: var(--border); }
+/* a zone just completed: it flashes and a shine sweeps across, as if locked in */
+#tracker .tk-z.tk-lock { animation: tk-lock .8s ease-out; }
+#tracker .tk-z.tk-lock::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; right: 0; background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.65) 50%, transparent 80%); transform: translateX(-100%); animation: tk-shine .8s ease-out; }
+@keyframes tk-lock { 0% { box-shadow: 0 0 0 0 var(--zc, #fff); filter: brightness(1); } 30% { box-shadow: 0 0 10px 3px var(--zc, #fff); filter: brightness(1.6); } 100% { box-shadow: 0 0 0 0 transparent; filter: brightness(1); } }
+@keyframes tk-shine { to { transform: translateX(100%); } }
 #tracker .tk-queued { color: var(--muted); }
 #tracker .tk-next { display: block; color: var(--muted); font-size: 11px; }
 @media (max-width: 700px) { #tracker { padding: 12px 16px; } #tracker .tk-body { flex-direction: column; } #tracker .tk-battery { border-left: 0; padding-left: 0; text-align: left; flex-basis: auto; } }
@@ -457,12 +469,13 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
 </header>
 
 <section id="tracker" hidden aria-label="Benchmark battery progress">
-  <div class="tk-head"><span class="tk-title">&#9889; Benchmark battery running</span><span id="tk-badge" class="badge badge-blue"></span></div>
+  <div class="tk-head"><span class="tk-title" id="tk-title">&#9889; Benchmark battery running</span><span id="tk-badge" class="badge badge-blue"></span></div>
+  <div class="tk-done" id="tk-done" hidden><span id="tk-donetext"></span><span class="tk-closing">Closes in <b id="tk-closein"></b> <button type="button" id="tk-dismiss">Dismiss</button></span></div>
   <div class="tk-body">
     <div class="tk-models" id="tk-models"></div>
     <div class="tk-battery">
-      <div class="tk-times" id="tk-times" hidden>Started <b id="tk-start"></b><br>Elapsed <b id="tk-elapsed"></b></div>
-      <div class="tk-lbl tk-fin">Battery finishes</div><div class="tk-big" id="tk-beta"></div><div class="tk-lbl" id="tk-brel"></div></div>
+      <div class="tk-times" id="tk-times" hidden>Started <b id="tk-start"></b><br><span id="tk-elabel">Elapsed</span> <b id="tk-elapsed"></b></div>
+      <div id="tk-fin"><div class="tk-lbl tk-fin">Battery finishes</div><div class="tk-big" id="tk-beta"></div><div class="tk-lbl" id="tk-brel"></div></div></div>
   </div>
 </section>
 
@@ -2584,6 +2597,7 @@ if (matrixData?.models?.length) {
 const TK_P = 0.5;            // zone width = expected_min ** TK_P  (1 = proportional, 0 = equal)
 const TK_MIN_W = 0.06;       // minimum zone width as a fraction of the bar
 const TK_POLL_MS = 10000;
+const TK_CLOSE_MS = 5 * 60 * 1000;   // finished panel stays this long after the run ends
 const TK_TIMEOUT_MS = 2000;
 const TK_TIERS = [
   { name: 'Tailscale', url: 'https://deehpz440.tail499935.ts.net/progress.json' },  // needs tailscale serve (not enabled yet)
@@ -2623,6 +2637,23 @@ const TK_TIERS = [
     return [clock, rel];
   }
   const rows = new Map();   // model name -> persistent DOM nodes
+  let closesAt = 0, finKeyShown = null, dismissedKey = null;
+  try { dismissedKey = localStorage.getItem('tk-dismissed'); } catch (e) { /* no storage: dismissal lasts until reload */ }
+  function hidePanel() { $('tracker').hidden = true; rows.clear(); $('tk-models').replaceChildren(); }
+  function dismiss() {
+    dismissedKey = finKeyShown;
+    try { localStorage.setItem('tk-dismissed', dismissedKey); } catch (e) { /* ignore */ }
+    hidePanel();
+  }
+  $('tk-dismiss').addEventListener('click', dismiss);
+  function fmtDur(sec) { const m = Math.round(sec / 60); return m < 90 ? m + ' min' : (m / 60).toFixed(1) + ' h'; }
+  function tickClose() {
+    if (!closesAt || $('tk-done').hidden) return;
+    const s = Math.max(0, Math.ceil((closesAt - Date.now()) / 1000));
+    $('tk-closein').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    if (!s) dismiss();
+  }
+  setInterval(tickClose, 1000);
   function buildRow(m) {
     const r = { sig: m.zones.map(z => z.id).join(), el: mk('div'), zl: [], zb: [], fill: [], strip: [] };
     r.nm = mk('span', 'tk-mname', m.name); r.pill = mk('span', 'tk-run', 'RUNNING'); r.pct = mk('span');
@@ -2640,8 +2671,21 @@ const TK_TIERS = [
   }
   function render(data, tier) {
     const panel = $('tracker');
-    if (!data || !data.active || !(data.models || []).length) { panel.hidden = true; rows.clear(); $('tk-models').replaceChildren(); return; }
+    const fin = data && !data.active && data.finished && (data.models || []).length ? data.finished : null;
+    const finKey = fin ? fin.started + '|' + fin.ended : null;
+    closesAt = fin ? new Date(fin.ended).getTime() + TK_CLOSE_MS : 0;
+    if ((!fin && (!data || !data.active || !(data.models || []).length)) || (fin && (finKey === dismissedKey || Date.now() >= closesAt))) { hidePanel(); return; }
     $('tk-badge').textContent = 'via ' + tier;
+    $('tk-title').innerHTML = fin ? (fin.status === 'finished' ? '&#9989; Benchmark battery complete' : '&#9888;&#65039; Benchmark battery stopped') : '&#9889; Benchmark battery running';
+    $('tk-done').hidden = !fin; $('tk-fin').hidden = !!fin;
+    if (fin) {
+      const ok = fin.status === 'finished', took = fmtDur(fin.duration_sec);
+      $('tk-done').classList.toggle('tk-failed', !ok);
+      $('tk-donetext').textContent = ok
+        ? fin.models + (fin.models === 1 ? ' model' : ' models') + ' finished in ' + took + ' at ' + new Date(fin.ended).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '.'
+        : 'Battery stopped after ' + took + (fin.message ? ': ' + fin.message : '.');
+      finKeyShown = finKey; tickClose();
+    }
     const box = $('tk-models'), seen = new Set();
     data.models.forEach((m, mi) => {
       let r = rows.get(m.name);
@@ -2658,22 +2702,28 @@ const TK_TIERS = [
         l.style.flex = w[i] + ' 1 0'; l.title = z.label + ' (~' + z.expected_min + ' min)';
         r.zb[i].style.flex = w[i] + ' 1 0'; r.zb[i].title = z.label + ': ' + z.done + '/' + z.total;
         r.fill[i].style.background = z.color; r.fill[i].style.width = frac + '%';
+        if (r.prev && r.prev[i] < 100 && frac >= 100) {   // zone just completed: flash + shine ("locked in")
+          const zb = r.zb[i]; zb.style.setProperty('--zc', z.color); zb.classList.remove('tk-lock'); void zb.offsetWidth; zb.classList.add('tk-lock');
+          setTimeout(() => zb.classList.remove('tk-lock'), 900);
+        }
         r.strip[i].hidden = !cur; r.strip[i].style.left = frac + '%';
       });
+      r.prev = m.zones.map(z => z.total ? 100 * z.done / z.total : 0);
       const [clock, rel] = fmtEta(m.eta);
       r.left.className = m.running ? '' : 'tk-queued';
       r.stepText.nodeValue = m.step || '';
       if (m.next_zone) { r.next.textContent = 'Next test: ' + m.next_zone; if (!r.next.isConnected) r.left.append(r.next); } else r.next.remove();
-      r.eta.textContent = 'done ~' + clock + (rel ? ' (' + rel + ')' : '');
+      r.eta.textContent = fin ? '' : 'done ~' + clock + (rel ? ' (' + rel + ')' : '');
       if (box.children[mi] !== r.el) box.insertBefore(r.el, box.children[mi] || null);
     });
     for (const [name, r] of rows) if (!seen.has(name)) { r.el.remove(); rows.delete(name); }
     const [bc, br] = fmtEta(data.battery_eta);
     $('tk-beta').textContent = bc; $('tk-brel').textContent = br;
-    started = data.started ? new Date(data.started) : null;
-    $('tk-times').hidden = !started;
-    if (started) $('tk-start').textContent = started.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    tickElapsed();
+    started = !fin && data.started ? new Date(data.started) : null;   // finished: show a fixed duration, no ticking
+    $('tk-times').hidden = !data.started;
+    $('tk-elabel').textContent = fin ? 'Took' : 'Elapsed';
+    if (data.started) $('tk-start').textContent = new Date(data.started).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    if (fin) $('tk-elapsed').textContent = fmtDur(fin.duration_sec); else tickElapsed();
     panel.hidden = false;
   }
   async function fetchTier(t) {
