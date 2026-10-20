@@ -408,7 +408,8 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
 #tracker .tk-zl { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 #tracker .tk-z { position: relative; height: 9px; border-radius: 3px; background: var(--surface2); overflow: hidden; min-width: 0; transition: height .5s ease; }
 #tracker .tk-bar.tk-bar-cur .tk-z { height: 18px; }
-#tracker .tk-fill { height: 100%; opacity: .95; transition: width .9s ease; }
+#tracker .tk-fill { height: 100%; opacity: .95; transition: width .9s ease, opacity .8s ease, filter .8s ease; }
+#tracker .tk-fill.tk-fdone { opacity: .5; filter: saturate(.55); }
 /* unfilled part of the zone under test: slow gray barber-pole stripe, drifting right */
 #tracker .tk-stripe { position: absolute; top: 0; bottom: 0; right: 0; left: 0; transition: left .9s ease; background-size: 22px 22px; animation: tk-stripe 1.4s linear infinite;
   background-image: linear-gradient(135deg, rgba(128,128,128,.30) 25%, transparent 25%, transparent 50%, rgba(128,128,128,.30) 50%, rgba(128,128,128,.30) 75%, transparent 75%); }
@@ -423,7 +424,7 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
 #tracker .tk-run { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; padding: 0 8px; border-radius: 10px; font-size: 10px; font-weight: 700; letter-spacing: .06em; color: var(--green); background: rgba(63,185,80,.15); vertical-align: 1px; }
 #tracker .tk-run::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: tk-pulse 1.2s ease-in-out infinite; }
 @keyframes tk-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .25; transform: scale(.7); } }
-@media (prefers-reduced-motion: reduce) { #tracker .tk-run::before, #tracker .tk-stripe { animation: none; } #tracker .tk-z, #tracker .tk-fill, #tracker .tk-stripe { transition: none; } #tracker .tk-z.tk-lock, #tracker .tk-z.tk-lock::after { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #tracker .tk-run::before, #tracker .tk-stripe { animation: none; } #tracker .tk-z, #tracker .tk-fill, #tracker .tk-stripe { transition: none; } #tracker .tk-sheen.tk-go::after { animation: none; } #tracker .tk-z.tk-lock, #tracker .tk-z.tk-lock::after { animation: none; } }
 #tracker .tk-zl.tk-cur { color: var(--heading); font-weight: 600; }
 #tracker .tk-done { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; padding: 8px 12px; border-radius: 6px; font-size: 13px; color: var(--heading); background: rgba(63,185,80,.12); border: 1px solid rgba(63,185,80,.35); }
 #tracker .tk-done.tk-failed { background: rgba(248,81,73,.12); border-color: rgba(248,81,73,.4); }
@@ -433,6 +434,11 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
 #tracker .tk-closing button { margin-left: 8px; padding: 2px 10px; font-size: 12px; color: var(--text); background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
 #tracker .tk-closing button:hover { background: var(--border); }
 /* a zone just completed: it flashes and a shine sweeps across, as if locked in */
+/* the whole bar just reached 100%: one fast sheen left to right across all zones */
+#tracker .tk-bar { position: relative; }
+#tracker .tk-sheen { position: absolute; top: 0; bottom: 0; left: 0; right: 0; border-radius: 3px; overflow: hidden; pointer-events: none; }
+#tracker .tk-sheen.tk-go::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 100%; background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.8) 50%, transparent 70%); transform: translateX(-100%); animation: tk-sheen .7s cubic-bezier(.4,0,.6,1) .3s both; }
+@keyframes tk-sheen { to { transform: translateX(100%); } }
 #tracker .tk-z.tk-lock { animation: tk-lock .8s ease-out; }
 #tracker .tk-z.tk-lock::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; right: 0; background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.65) 50%, transparent 80%); transform: translateX(-100%); animation: tk-shine .8s ease-out; }
 @keyframes tk-lock { 0% { box-shadow: 0 0 0 0 var(--zc, #fff); filter: brightness(1); } 30% { box-shadow: 0 0 10px 3px var(--zc, #fff); filter: brightness(1.6); } 100% { box-shadow: 0 0 0 0 transparent; filter: brightness(1); } }
@@ -2655,7 +2661,7 @@ const TK_TIERS = [
   }
   setInterval(tickClose, 1000);
   function buildRow(m) {
-    const r = { sig: m.zones.map(z => z.id).join(), el: mk('div'), zl: [], zb: [], fill: [], strip: [] };
+    const r = { sig: m.zones.map(z => z.id).join(), el: mk('div'), zl: [], zb: [], fill: [], strip: [], sheen: mk('div', 'tk-sheen') };
     r.nm = mk('span', 'tk-mname', m.name); r.pill = mk('span', 'tk-run', 'RUNNING'); r.pct = mk('span');
     const head = mk('div', 'tk-mhead'); head.append(r.nm, r.pct);
     r.labels = mk('div', 'tk-zlabels'); r.bar = mk('div', 'tk-bar');
@@ -2664,6 +2670,7 @@ const TK_TIERS = [
       s.hidden = true; zb.append(f, s); r.labels.append(l); r.bar.append(zb);
       r.zl.push(l); r.zb.push(zb); r.fill.push(f); r.strip.push(s);
     });
+    r.bar.append(r.sheen);
     r.left = mk('span'); r.stepText = document.createTextNode(''); r.left.append(r.stepText); r.next = mk('span', 'tk-next'); r.eta = mk('span', 'tk-eta');
     const sub = mk('div', 'tk-sub'); sub.append(r.left, r.eta);
     r.el.append(head, r.labels, r.bar, sub);
@@ -2702,12 +2709,19 @@ const TK_TIERS = [
         l.style.flex = w[i] + ' 1 0'; l.title = z.label + ' (~' + z.expected_min + ' min)';
         r.zb[i].style.flex = w[i] + ' 1 0'; r.zb[i].title = z.label + ': ' + z.done + '/' + z.total;
         r.fill[i].style.background = z.color; r.fill[i].style.width = frac + '%';
+        r.fill[i].classList.toggle('tk-fdone', frac >= 100);   // finished zones fade back
         if (r.prev && r.prev[i] < 100 && frac >= 100) {   // zone just completed: flash + shine ("locked in")
           const zb = r.zb[i]; zb.style.setProperty('--zc', z.color); zb.classList.remove('tk-lock'); void zb.offsetWidth; zb.classList.add('tk-lock');
           setTimeout(() => zb.classList.remove('tk-lock'), 900);
         }
         r.strip[i].hidden = !cur; r.strip[i].style.left = frac + '%';
       });
+      const allDone = m.zones.every(z => z.total && z.done >= z.total);
+      if (r.prev && allDone && !r.allDone) {   // whole bar complete: one sheen across it
+        r.sheen.classList.remove('tk-go'); void r.sheen.offsetWidth; r.sheen.classList.add('tk-go');
+        setTimeout(() => r.sheen.classList.remove('tk-go'), 1500);
+      }
+      r.allDone = allDone;
       r.prev = m.zones.map(z => z.total ? 100 * z.done / z.total : 0);
       const [clock, rel] = fmtEta(m.eta);
       r.left.className = m.running ? '' : 'tk-queued';
