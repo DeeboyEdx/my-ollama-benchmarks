@@ -424,7 +424,7 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
 #tracker .tk-run { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; padding: 0 8px; border-radius: 10px; font-size: 10px; font-weight: 700; letter-spacing: .06em; color: var(--green); background: rgba(63,185,80,.15); vertical-align: 1px; }
 #tracker .tk-run::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: tk-pulse 1.2s ease-in-out infinite; }
 @keyframes tk-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .25; transform: scale(.7); } }
-@media (prefers-reduced-motion: reduce) { #tracker .tk-run::before, #tracker .tk-stripe { animation: none; } #tracker .tk-z, #tracker .tk-fill, #tracker .tk-stripe { transition: none; } #tracker .tk-sheen.tk-go::after { animation: none; } #tracker .tk-z.tk-lock, #tracker .tk-z.tk-lock::after { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #tracker .tk-run::before, #tracker .tk-stripe { animation: none; } #tracker .tk-z, #tracker .tk-fill, #tracker .tk-stripe { transition: none; } #tracker .tk-z.tk-lock, #tracker .tk-z.tk-lock::after { animation: none; } }
 #tracker .tk-zl.tk-cur { color: var(--heading); font-weight: 600; }
 #tracker .tk-done { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; padding: 8px 12px; border-radius: 6px; font-size: 13px; color: var(--heading); background: rgba(63,185,80,.12); border: 1px solid rgba(63,185,80,.35); }
 #tracker .tk-done.tk-failed { background: rgba(248,81,73,.12); border-color: rgba(248,81,73,.4); }
@@ -437,8 +437,13 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
 /* the whole bar just reached 100%: one fast sheen left to right across all zones */
 #tracker .tk-bar { position: relative; }
 #tracker .tk-sheen { position: absolute; top: 0; bottom: 0; left: 0; right: 0; border-radius: 3px; overflow: hidden; pointer-events: none; }
-#tracker .tk-sheen.tk-go::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 100%; background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.8) 50%, transparent 70%); transform: translateX(-100%); animation: tk-sheen .7s cubic-bezier(.4,0,.6,1) .3s both; }
-@keyframes tk-sheen { to { transform: translateX(100%); } }
+#tracker .tk-sheen i { position: absolute; top: 0; bottom: 0; left: 0; background: linear-gradient(100deg, transparent 25%, #fff 50%, transparent 75%); transform: translateX(-110%); opacity: 0; }
+/* what the final sheen reveals: one unified look over the whole bar. Green under 8 GB, gold over. */
+#tracker .tk-fin { position: absolute; top: 0; bottom: 0; left: 0; right: 0; border-radius: 3px; pointer-events: none; opacity: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; letter-spacing: .12em; white-space: nowrap; overflow: hidden; }
+#tracker .tk-fin.tk-on { opacity: 1; }
+#tracker .tk-fin.tk-green { background: linear-gradient(90deg, #2ea043, #3fb950); color: rgba(6,40,16,.85); }
+#tracker .tk-fin.tk-gold { background: linear-gradient(180deg, #fff0a8 0%, #f2c230 28%, #b8860b 62%, #f2c230 82%, #ffe27a 100%); box-shadow: inset 0 0 0 1px rgba(255,235,150,.6); color: #3a2800; text-shadow: 0 1px 0 rgba(255,240,170,.75); }
+#tracker .tk-bar.tk-bar-done .tk-z { height: 16px; }
 #tracker .tk-z.tk-lock { animation: tk-lock .8s ease-out; }
 #tracker .tk-z.tk-lock::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; right: 0; background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.65) 50%, transparent 80%); transform: translateX(-100%); animation: tk-shine .8s ease-out; }
 @keyframes tk-lock { 0% { box-shadow: 0 0 0 0 var(--zc, #fff); filter: brightness(1); } 30% { box-shadow: 0 0 10px 3px var(--zc, #fff); filter: brightness(1.6); } 100% { box-shadow: 0 0 0 0 transparent; filter: brightness(1); } }
@@ -2604,6 +2609,7 @@ const TK_P = 0.5;            // zone width = expected_min ** TK_P  (1 = proporti
 const TK_MIN_W = 0.06;       // minimum zone width as a fraction of the bar
 const TK_POLL_MS = 10000;
 const TK_CLOSE_MS = 5 * 60 * 1000;   // finished panel stays this long after the run ends
+const TK_BIG_GB = 8;   // models larger than this finish gold, the rest green (size in GB as `ollama list` shows it)
 const TK_TIMEOUT_MS = 2000;
 const TK_TIERS = [
   { name: 'Tailscale', url: 'https://deehpz440.tail499935.ts.net/progress.json' },  // needs tailscale serve (not enabled yet)
@@ -2660,8 +2666,35 @@ const TK_TIERS = [
     if (!s) dismiss();
   }
   setInterval(tickClose, 1000);
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Build-up F: eight sheens speeding up, then one strong final sheen that reveals the finish left to right.
+  function playComplete(r) {
+    const stop = () => { (r.timers || []).forEach(clearTimeout); (r.anims || []).forEach(a => { try { a.cancel(); } catch (e) { /* ignore */ } }); r.timers = []; r.anims = []; r.sheen.replaceChildren(); };
+    stop();
+    if (reduceMotion) { r.fin.classList.add('tk-on'); return; }
+    const later = (ms, fn) => r.timers.push(setTimeout(fn, ms));
+    const pulse = (at, dur, alpha, w) => later(at, () => {
+      const i = document.createElement('i'); i.style.width = w + '%'; r.sheen.append(i);
+      const a = i.animate([{ transform: 'translateX(-110%)', opacity: alpha }, { transform: 'translateX(' + (10000 / w + 10) + '%)', opacity: alpha }],
+                          { duration: dur, easing: 'cubic-bezier(.4,0,.6,1)', fill: 'forwards' });
+      r.anims.push(a); a.onfinish = () => i.remove();
+    });
+    const N = 8; let t = 700, gap = 560, dur = 600;   // small lead-in so the last zone fills first
+    for (let k = 0; k < N; k++) { pulse(t, dur, .3 + .25 * k / (N - 1), 28); t += gap; gap *= .74; dur *= .85; }
+    t += gap * .6;
+    pulse(t, 750, 1, 80);
+    later(t, () => {
+      const a = r.fin.animate([{ opacity: 1, clipPath: 'inset(0 100% 0 0)' }, { opacity: 1, clipPath: 'inset(0 0% 0 0)' }],
+                              { duration: 675, easing: 'cubic-bezier(.4,0,.6,1)', fill: 'forwards' });
+      r.anims.push(a);
+      a.onfinish = () => { r.fin.classList.add('tk-on'); a.cancel(); };
+    });
+    later(t, () => r.anims.push(r.bar.animate([{ boxShadow: '0 0 0 0 rgba(255,255,255,0)' }, { boxShadow: '0 0 16px 3px rgba(255,255,255,.7)', offset: .35 }, { boxShadow: '0 0 0 0 rgba(255,255,255,0)' }],
+                                                  { duration: 1250, easing: 'ease-out' })));
+  }
+  function stopComplete(r) { (r.timers || []).forEach(clearTimeout); (r.anims || []).forEach(a => { try { a.cancel(); } catch (e) { /* ignore */ } }); r.timers = []; r.anims = []; r.sheen.replaceChildren(); r.fin.classList.remove('tk-on'); }
   function buildRow(m) {
-    const r = { sig: m.zones.map(z => z.id).join(), el: mk('div'), zl: [], zb: [], fill: [], strip: [], sheen: mk('div', 'tk-sheen') };
+    const r = { sig: m.zones.map(z => z.id).join(), el: mk('div'), zl: [], zb: [], fill: [], strip: [], sheen: mk('div', 'tk-sheen'), fin: mk('div', 'tk-fin'), timers: [], anims: [] };
     r.nm = mk('span', 'tk-mname', m.name); r.pill = mk('span', 'tk-run', 'RUNNING'); r.pct = mk('span');
     const head = mk('div', 'tk-mhead'); head.append(r.nm, r.pct);
     r.labels = mk('div', 'tk-zlabels'); r.bar = mk('div', 'tk-bar');
@@ -2673,6 +2706,7 @@ const TK_TIERS = [
     r.bar.append(r.sheen);
     r.left = mk('span'); r.stepText = document.createTextNode(''); r.left.append(r.stepText); r.next = mk('span', 'tk-next'); r.eta = mk('span', 'tk-eta');
     const sub = mk('div', 'tk-sub'); sub.append(r.left, r.eta);
+    r.bar.append(r.fin, r.sheen);
     r.el.append(head, r.labels, r.bar, sub);
     return r;
   }
@@ -2717,10 +2751,12 @@ const TK_TIERS = [
         r.strip[i].hidden = !cur; r.strip[i].style.left = frac + '%';
       });
       const allDone = m.zones.every(z => z.total && z.done >= z.total);
-      if (r.prev && allDone && !r.allDone) {   // whole bar complete: one sheen across it
-        r.sheen.classList.remove('tk-go'); void r.sheen.offsetWidth; r.sheen.classList.add('tk-go');
-        setTimeout(() => r.sheen.classList.remove('tk-go'), 1500);
-      }
+      const gold = m.size_gb != null && m.size_gb > TK_BIG_GB;   // exactly 8 GB, or no size known: green
+      r.fin.className = 'tk-fin ' + (gold ? 'tk-gold' : 'tk-green') + (r.fin.classList.contains('tk-on') ? ' tk-on' : '');
+      r.fin.textContent = 'COMPLETE \u2713';
+      r.bar.classList.toggle('tk-bar-done', allDone);
+      if (allDone && !r.allDone) { if (r.prev) playComplete(r); else r.fin.classList.add('tk-on'); }   // seen finishing: build-up; opened already finished: show it
+      else if (!allDone && r.allDone) stopComplete(r);
       r.allDone = allDone;
       r.prev = m.zones.map(z => z.total ? 100 * z.done / z.total : 0);
       const [clock, rel] = fmtEta(m.eta);
