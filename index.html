@@ -2614,7 +2614,10 @@ const TK_POLL_MS = 10000;
 const TK_CLOSE_MS = 5 * 60 * 1000;   // finished panel stays this long after the run ends
 const TK_BIG_GB = 8;   // models larger than this finish gold, the rest green (size in GB as `ollama list` shows it)
 const TK_TIMEOUT_MS = 2000;
-const TK_REPO_STALE_MS = 4 * 60 * 60 * 1000;   // a repo snapshot older than this is not trusted as a live run
+// A repo snapshot that still says "running" is only trusted this long after it was written (its `updated` time, compared with this
+// page's clock). Snapshots are pushed only at run start, each stage change and the end, and a stage on a model too big for the GPU can
+// take half a day, so 12 h. Finished/failed snapshots do not use this: they hide 5 min after the run's own end time (TK_CLOSE_MS).
+const TK_REPO_STALE_MS = 12 * 60 * 60 * 1000;
 const TK_TIERS = [
   { name: 'Local',     url: 'http://localhost:8780/progress.json' },
   { name: 'LAN',       url: null },   // empty on purpose (mixed content, see above); skipped
