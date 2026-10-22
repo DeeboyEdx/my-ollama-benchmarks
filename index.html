@@ -2604,17 +2604,19 @@ if (matrixData?.models?.length) {
 
 // ── Battery progress tracker ──────────────────────────────────────────
 // Tiers are tried in order; each gets TK_TIMEOUT_MS. A tier with a null url is skipped.
-// Tailscale url is filled in once TailscaleAdmin provides the host name.
+// Order: this PC, LAN (empty: an https page cannot fetch a plain-http LAN address), Tailscale, then the snapshot the benchmark scripts push to the repo.
 const TK_P = 0.5;            // zone width = expected_min ** TK_P  (1 = proportional, 0 = equal)
 const TK_MIN_W = 0.06;       // minimum zone width as a fraction of the bar
 const TK_POLL_MS = 10000;
 const TK_CLOSE_MS = 5 * 60 * 1000;   // finished panel stays this long after the run ends
 const TK_BIG_GB = 8;   // models larger than this finish gold, the rest green (size in GB as `ollama list` shows it)
 const TK_TIMEOUT_MS = 2000;
+const TK_REPO_STALE_MS = 4 * 60 * 60 * 1000;   // a repo snapshot older than this is not trusted as a live run
 const TK_TIERS = [
-  { name: 'Tailscale', url: 'https://deehpz440.tail499935.ts.net/progress.json' },  // needs tailscale serve (not enabled yet)
   { name: 'Local',     url: 'http://localhost:8780/progress.json' },
-  { name: 'Repo',      url: 'progress.json' },
+  { name: 'LAN',       url: null },   // not viable: mixed content (https page, http LAN address)
+  { name: 'Tailscale', url: 'https://deehpz440.tail499935.ts.net/progress.json' },
+  { name: 'Repo',      url: 'progress.json', repo: true },
 ];
 (function () {
   const override = new URLSearchParams(location.search).get('tracker');  // dev: ?tracker=<url>
@@ -2778,7 +2780,14 @@ const TK_TIERS = [
   }
   async function fetchTier(t) {
     const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), TK_TIMEOUT_MS);
-    try { const r = await fetch(t.url, { signal: ctl.signal, cache: 'no-store' }); if (!r.ok) throw 0; return await r.json(); }
+    // the repo file sits behind the Pages CDN (cached ~10 min): a changing query string gets the current copy
+    const url = t.repo ? t.url + '?t=' + Math.floor(Date.now() / 10000) : t.url;
+    try {
+      const r = await fetch(url, { signal: ctl.signal, cache: 'no-store' }); if (!r.ok) throw 0;
+      const d = await r.json();
+      if (t.repo && d && d.active && Date.now() - new Date(d.updated).getTime() > TK_REPO_STALE_MS) d.active = false;   // abandoned run
+      return d;
+    }
     finally { clearTimeout(timer); }
   }
   async function poll() {
