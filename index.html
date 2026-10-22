@@ -2604,7 +2604,10 @@ if (matrixData?.models?.length) {
 
 // ── Battery progress tracker ──────────────────────────────────────────
 // Tiers are tried in order; each gets TK_TIMEOUT_MS. A tier with a null url is skipped.
-// Order: this PC, LAN (empty: an https page cannot fetch a plain-http LAN address), Tailscale, then the snapshot the benchmark scripts push to the repo.
+// Order: this PC, LAN (deliberately empty, see below), Tailscale, then the snapshot the benchmark scripts push to the repo.
+// A tier whose url is null is skipped. The LAN slot stays empty on purpose: this page is served over HTTPS, and browsers block an
+// HTTPS page from fetching a plain-http address such as the PC's reserved LAN IP (mixed content). Only localhost is exempt.
+// Serving the watcher over HTTPS on the LAN would need a certificate for a private IP, which is not practical.
 const TK_P = 0.5;            // zone width = expected_min ** TK_P  (1 = proportional, 0 = equal)
 const TK_MIN_W = 0.06;       // minimum zone width as a fraction of the bar
 const TK_POLL_MS = 10000;
@@ -2614,7 +2617,7 @@ const TK_TIMEOUT_MS = 2000;
 const TK_REPO_STALE_MS = 4 * 60 * 60 * 1000;   // a repo snapshot older than this is not trusted as a live run
 const TK_TIERS = [
   { name: 'Local',     url: 'http://localhost:8780/progress.json' },
-  { name: 'LAN',       url: null },   // not viable: mixed content (https page, http LAN address)
+  { name: 'LAN',       url: null },   // empty on purpose (mixed content, see above); skipped
   { name: 'Tailscale', url: 'https://deehpz440.tail499935.ts.net/progress.json' },
   { name: 'Repo',      url: 'progress.json', repo: true },
 ];
@@ -2718,7 +2721,7 @@ const TK_TIERS = [
     const finKey = fin ? fin.started + '|' + fin.ended : null;
     closesAt = fin ? new Date(fin.ended).getTime() + TK_CLOSE_MS : 0;
     if ((!fin && (!data || !data.active || !(data.models || []).length)) || (fin && (finKey === dismissedKey || Date.now() >= closesAt))) { hidePanel(); return; }
-    $('tk-badge').textContent = 'via ' + tier;
+    $('tk-badge').textContent = 'via ' + tier + (data && data.demo ? ' · replay' : '');
     $('tk-title').innerHTML = fin ? (fin.status === 'finished' ? '&#9989; Benchmark battery complete' : '&#9888;&#65039; Benchmark battery stopped') : '&#9889; Benchmark battery running';
     $('tk-done').hidden = !fin; $('tk-fin').hidden = !!fin;
     if (fin) {
