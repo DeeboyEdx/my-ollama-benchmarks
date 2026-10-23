@@ -1,16 +1,16 @@
 {
-  "updated": "2026-10-22T22:06:46-04:00",
+  "updated": "2026-10-22T22:17:06-04:00",
   "active": true,
   "started": "2026-10-22T21:16:17-04:00",
-  "battery_eta": "2026-10-23T02:44:46-04:00",
+  "battery_eta": "2026-10-23T02:13:15-04:00",
   "models": [
     {
       "name": "ministral-3:14b",
-      "step": "TTO + Grading",
-      "running": true,
+      "step": "queued",
+      "running": false,
       "size_gb": 9.1,
-      "next_zone": null,
-      "eta": "2026-10-23T00:58:48-04:00",
+      "next_zone": "GPU sweep",
+      "eta": "2026-10-23T00:43:45-04:00",
       "zones": [
         {
           "id": "speed",
@@ -26,10 +26,9 @@
           "label": "TTO + Grading",
           "color": "#58a6ff",
           "expected_min": 13.0,
-          "done": 0.0,
+          "done": 100.0,
           "total": 100,
-          "est": false,
-          "started": "2026-10-22T22:06:44-04:00"
+          "est": false
         },
         {
           "id": "gpu",
@@ -38,7 +37,8 @@
           "expected_min": 22.9,
           "done": 0.0,
           "total": 100,
-          "est": false
+          "est": false,
+          "started": "2026-10-22T22:17:04-04:00"
         },
         {
           "id": "ctx",
@@ -62,11 +62,11 @@
     },
     {
       "name": "granite4.1:8b",
-      "step": "queued",
-      "running": false,
+      "step": "GPU layer sweep",
+      "running": true,
       "size_gb": 5.3,
-      "next_zone": "TTO + Grading",
-      "eta": "2026-10-23T02:44:46-04:00",
+      "next_zone": null,
+      "eta": "2026-10-23T02:13:15-04:00",
       "zones": [
         {
           "id": "speed",
@@ -82,19 +82,19 @@
           "label": "TTO + Grading",
           "color": "#58a6ff",
           "expected_min": 8.6,
-          "done": 0.0,
+          "done": 100.0,
           "total": 100,
-          "est": false,
-          "started": "2026-10-22T22:06:44-04:00"
+          "est": false
         },
         {
           "id": "gpu",
           "label": "GPU sweep",
           "color": "#e3b341",
           "expected_min": 13.5,
-          "done": 0.0,
+          "done": 0.1,
           "total": 100,
-          "est": false
+          "est": true,
+          "started": "2026-10-22T22:17:04-04:00"
         },
         {
           "id": "ctx",
