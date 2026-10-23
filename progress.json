@@ -1,16 +1,16 @@
 {
-  "updated": "2026-10-22T20:31:03-04:00",
+  "updated": "2026-10-22T20:32:24-04:00",
   "active": true,
   "started": "2026-10-22T20:29:52-04:00",
-  "battery_eta": "2026-10-22T21:10:57-04:00",
+  "battery_eta": "2026-10-22T20:51:07-04:00",
   "models": [
     {
       "name": "llama3.2:1b",
-      "step": "TTO + Grading",
-      "running": true,
+      "step": "queued",
+      "running": false,
       "size_gb": 1.3,
-      "next_zone": null,
-      "eta": "2026-10-22T20:52:41-04:00",
+      "next_zone": "GPU sweep",
+      "eta": "2026-10-22T20:42:37-04:00",
       "zones": [
         {
           "id": "speed",
@@ -26,7 +26,7 @@
           "label": "TTO + Grading",
           "color": "#58a6ff",
           "expected_min": 4.0,
-          "done": 0.0,
+          "done": 100.0,
           "total": 100,
           "est": false
         },
@@ -61,11 +61,11 @@
     },
     {
       "name": "qwen3:0.6b",
-      "step": "queued",
-      "running": false,
+      "step": "GPU layer sweep",
+      "running": true,
       "size_gb": 0.51,
-      "next_zone": "TTO + Grading",
-      "eta": "2026-10-22T21:10:57-04:00",
+      "next_zone": null,
+      "eta": "2026-10-22T20:51:07-04:00",
       "zones": [
         {
           "id": "speed",
@@ -81,7 +81,7 @@
           "label": "TTO + Grading",
           "color": "#58a6ff",
           "expected_min": 3.6,
-          "done": 0.0,
+          "done": 100.0,
           "total": 100,
           "est": false
         },
@@ -90,9 +90,9 @@
           "label": "GPU sweep",
           "color": "#e3b341",
           "expected_min": 2.9,
-          "done": 0.0,
+          "done": 0.4,
           "total": 100,
-          "est": false
+          "est": true
         },
         {
           "id": "ctx",
