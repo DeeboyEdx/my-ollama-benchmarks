@@ -415,7 +415,7 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
   background-image: linear-gradient(135deg, rgba(128,128,128,.30) 25%, transparent 25%, transparent 50%, rgba(128,128,128,.30) 50%, rgba(128,128,128,.30) 75%, transparent 75%); }
 @keyframes tk-stripe { from { background-position: 0 0; } to { background-position: 22px 0; } }
 #tracker .tk-sub { display: flex; justify-content: space-between; font-size: 12px; color: var(--text); margin-top: 3px; }
-#tracker .tk-eta { color: var(--muted); }
+#tracker .tk-eta { display: flex; gap: .3em; color: var(--muted); }
 #tracker .tk-battery { flex: 0 0 150px; text-align: right; border-left: 1px solid var(--border); padding-left: 16px; }
 #tracker .tk-battery .tk-big { font-size: 20px; color: var(--heading); font-weight: 700; line-height: 1.2; }
 #tracker .tk-battery .tk-lbl { font-size: 11px; color: var(--muted); }
@@ -462,7 +462,19 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
 @keyframes tk-shine { to { transform: translateX(100%); } }
 #tracker .tk-queued { color: var(--muted); }
 #tracker .tk-next { display: block; color: var(--muted); font-size: 11px; }
-@media (max-width: 700px) { #tracker { padding: 12px 16px; } #tracker .tk-body { flex-direction: column; } #tracker .tk-battery { border-left: 0; padding-left: 0; text-align: left; flex-basis: auto; } }
+@media (max-width: 700px) {
+  #tracker { padding: 12px 16px; }
+  /* stacked: the bars take the whole row (the column used to shrink to its content because of align-items: flex-start) */
+  #tracker .tk-body { flex-direction: column; align-items: stretch; }
+  #tracker .tk-models { flex: none; width: 100%; }
+  #tracker .tk-battery { border-left: 0; padding-left: 0; text-align: left; flex-basis: auto; }
+  /* finish times: larger, each on its own full-width line (clock left, "in x h" right) */
+  #tracker .tk-sub { flex-wrap: wrap; row-gap: 2px; }
+  #tracker .tk-eta { flex: 1 0 100%; justify-content: space-between; font-size: 15px; font-weight: 600; color: var(--text); }
+  #tracker #tk-fin { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  #tracker .tk-battery .tk-big { font-size: 26px; }
+  #tracker .tk-battery .tk-lbl { font-size: 13px; }
+}
 </style>
 </head>
 <body>
@@ -2831,7 +2843,7 @@ const TK_TIERS = [
       r.left.className = m.running ? '' : 'tk-queued';
       r.stepText.nodeValue = m.step || '';
       if (m.next_zone) { r.next.textContent = 'Next test: ' + m.next_zone; if (!r.next.isConnected) r.left.append(r.next); } else r.next.remove();
-      r.eta.textContent = fin ? '' : 'done ~' + clock + (rel ? ' (' + rel + ')' : '');
+      r.eta.replaceChildren(...(fin ? [] : [mk('span', null, 'done ~' + clock)].concat(rel ? [mk('span', null, '(' + rel + ')')] : [])));
       if (box.children[mi] !== r.el) box.insertBefore(r.el, box.children[mi] || null);
     });
     for (const [name, r] of rows) if (!seen.has(name)) { r.el.remove(); rows.delete(name); }
