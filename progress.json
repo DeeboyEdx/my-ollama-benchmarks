@@ -1,25 +1,25 @@
 {
-  "updated": "2026-10-22T21:16:23-04:00",
+  "updated": "2026-10-22T22:06:02-04:00",
   "active": true,
   "started": "2026-10-22T21:16:17-04:00",
-  "battery_eta": "2026-10-23T00:40:17-04:00",
+  "battery_eta": "2026-10-23T01:59:27-04:00",
   "models": [
     {
       "name": "ministral-3:14b",
-      "step": "queued",
-      "running": false,
+      "step": "LarHope gen-speed",
+      "running": true,
       "size_gb": 9.1,
-      "next_zone": "Speed",
-      "eta": "2026-10-22T23:22:38-04:00",
+      "next_zone": null,
+      "eta": "2026-10-23T00:34:27-04:00",
       "zones": [
         {
           "id": "speed",
           "label": "Speed",
           "color": "#3fb950",
           "expected_min": 8.9,
-          "done": 0.0,
+          "done": 0.2,
           "total": 100,
-          "est": false,
+          "est": true,
           "started": "2026-10-22T21:16:20-04:00"
         },
         {
@@ -62,20 +62,20 @@
     },
     {
       "name": "granite4.1:8b",
-      "step": "LarHope gen-speed",
-      "running": true,
+      "step": "queued",
+      "running": false,
       "size_gb": 5.3,
-      "next_zone": null,
-      "eta": "2026-10-23T00:40:17-04:00",
+      "next_zone": "TTO + Grading",
+      "eta": "2026-10-23T01:59:27-04:00",
       "zones": [
         {
           "id": "speed",
           "label": "Speed",
           "color": "#3fb950",
           "expected_min": 5.4,
-          "done": 0.7,
+          "done": 100.0,
           "total": 100,
-          "est": true,
+          "est": false,
           "started": "2026-10-22T21:16:20-04:00"
         },
         {
