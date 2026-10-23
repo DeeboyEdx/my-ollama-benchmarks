@@ -1,16 +1,16 @@
 {
-  "updated": "2026-10-23T02:14:10-04:00",
+  "updated": "2026-10-23T02:45:25-04:00",
   "active": true,
   "started": "2026-10-22T21:16:17-04:00",
-  "battery_eta": "2026-10-23T06:07:53-04:00",
+  "battery_eta": "2026-10-23T06:08:18-04:00",
   "models": [
     {
       "name": "ministral-3:14b",
-      "step": "Matrix sweep, cell 71/160",
+      "step": "Matrix sweep, cell 96/160",
       "running": true,
       "size_gb": 9.1,
       "next_zone": null,
-      "eta": "2026-10-23T04:05:44-04:00",
+      "eta": "2026-10-23T04:06:04-04:00",
       "zones": [
         {
           "id": "speed",
@@ -53,7 +53,7 @@
           "label": "Matrix sweep",
           "color": "#f85149",
           "expected_min": 76.0,
-          "done": 43.8,
+          "done": 59.4,
           "total": 100,
           "est": false,
           "started": "2026-10-23T00:41:32-04:00"
@@ -66,7 +66,7 @@
       "running": false,
       "size_gb": 5.3,
       "next_zone": "Matrix sweep",
-      "eta": "2026-10-23T06:07:53-04:00",
+      "eta": "2026-10-23T06:08:18-04:00",
       "zones": [
         {
           "id": "speed",
