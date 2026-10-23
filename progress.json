@@ -1,16 +1,16 @@
 {
-  "updated": "2026-10-22T22:17:06-04:00",
+  "updated": "2026-10-22T23:10:53-04:00",
   "active": true,
   "started": "2026-10-22T21:16:17-04:00",
-  "battery_eta": "2026-10-23T02:13:15-04:00",
+  "battery_eta": "2026-10-23T02:38:58-04:00",
   "models": [
     {
       "name": "ministral-3:14b",
       "step": "queued",
       "running": false,
       "size_gb": 9.1,
-      "next_zone": "GPU sweep",
-      "eta": "2026-10-23T00:43:45-04:00",
+      "next_zone": "Context sweep",
+      "eta": "2026-10-23T01:19:38-04:00",
       "zones": [
         {
           "id": "speed",
@@ -35,10 +35,9 @@
           "label": "GPU sweep",
           "color": "#e3b341",
           "expected_min": 22.9,
-          "done": 0.0,
+          "done": 100.0,
           "total": 100,
-          "est": false,
-          "started": "2026-10-22T22:17:04-04:00"
+          "est": false
         },
         {
           "id": "ctx",
@@ -47,7 +46,8 @@
           "expected_min": 5.3,
           "done": 0.0,
           "total": 100,
-          "est": false
+          "est": false,
+          "started": "2026-10-22T23:10:52-04:00"
         },
         {
           "id": "matrix",
@@ -62,11 +62,11 @@
     },
     {
       "name": "granite4.1:8b",
-      "step": "GPU layer sweep",
+      "step": "Context sweep",
       "running": true,
       "size_gb": 5.3,
       "next_zone": null,
-      "eta": "2026-10-23T02:13:15-04:00",
+      "eta": "2026-10-23T02:38:58-04:00",
       "zones": [
         {
           "id": "speed",
@@ -91,19 +91,19 @@
           "label": "GPU sweep",
           "color": "#e3b341",
           "expected_min": 13.5,
-          "done": 0.1,
+          "done": 100.0,
           "total": 100,
-          "est": true,
-          "started": "2026-10-22T22:17:04-04:00"
+          "est": false
         },
         {
           "id": "ctx",
           "label": "Context sweep",
           "color": "#f0883e",
           "expected_min": 3.3,
-          "done": 0.0,
+          "done": 0.2,
           "total": 100,
-          "est": false
+          "est": true,
+          "started": "2026-10-22T23:10:52-04:00"
         },
         {
           "id": "matrix",
