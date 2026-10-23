@@ -1,4 +1,4 @@
-generated: 2026-10-22 21:00
+generated: 2026-10-23 17:32
 gpu: NVIDIA GeForce RTX 4060 Ti
 vram_gb: 16
 notes:
@@ -122,6 +122,22 @@ models:
       num_ctx: 65024
       tps: 55.71
       source: ctx-sweep
+  granite4.1:8b:
+    gpu_sweep:
+      num_gpu: 41
+      num_ctx: 131072
+      tps: 22.46
+      max_layers: 41
+    ctx_sweep:
+      num_ctx: 34560
+      tps: 46.59
+      default_ctx: 131072
+      bounded_by: cap
+    matrix_surface:
+      num_gpu: 41
+      num_ctx: 34560
+      tps: 46.59
+      source: ctx-sweep
   huihui_ai/gemma-4-abliterated:12b:
     gpu_sweep:
       num_gpu: 49
@@ -153,6 +169,22 @@ models:
       num_gpu: 33
       num_ctx: 524288
       tps: 38.52
+      source: ctx-sweep
+  ministral-3:14b:
+    gpu_sweep:
+      num_gpu: 41
+      num_ctx: 262144
+      tps: 9.73
+      max_layers: 41
+    ctx_sweep:
+      num_ctx: 26368
+      tps: 29.98
+      default_ctx: 262144
+      bounded_by: oom
+    matrix_surface:
+      num_gpu: 41
+      num_ctx: 26368
+      tps: 29.98
       source: ctx-sweep
   mistral:latest:
     gpu_sweep:
