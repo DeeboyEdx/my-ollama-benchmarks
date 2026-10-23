@@ -396,7 +396,7 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
 }
 
 /* ── Battery progress tracker (hidden unless a battery is running) ── */
-#tracker { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 32px; }
+#tracker { position: relative; background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 32px; }
 #tracker[hidden] { display: none; }
 #tracker .tk-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
 #tracker .tk-title { color: var(--heading); font-weight: 600; font-size: 13px; }
@@ -426,6 +426,18 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
 @keyframes tk-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .25; transform: scale(.7); } }
 @media (prefers-reduced-motion: reduce) { #tracker .tk-run::before, #tracker .tk-stripe { animation: none; } #tracker .tk-z, #tracker .tk-fill, #tracker .tk-stripe { transition: none; } #tracker .tk-z.tk-lock, #tracker .tk-z.tk-lock::after { animation: none; } }
 #tracker .tk-zl.tk-cur { color: var(--heading); font-weight: 600; }
+/* tap a stage block or its label: a small box says what that test measures */
+#tracker .tk-z, #tracker .tk-zl { cursor: pointer; }
+#tracker .tk-z:focus-visible { outline: 2px solid var(--heading); outline-offset: 2px; }
+#tracker .tk-pop { position: absolute; z-index: 20; width: min(340px, calc(100% - 16px)); box-sizing: border-box; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.5; color: var(--text); box-shadow: 0 6px 20px rgba(0,0,0,.35); animation: tk-popin .15s ease-out; }
+#tracker .tk-pop[hidden] { display: none; }
+#tracker .tk-pop-h { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-weight: 600; color: var(--heading); }
+#tracker .tk-pop-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+#tracker .tk-pop-sep { border-top: 1px solid var(--border); margin: 8px 0 6px; }
+#tracker .tk-pop-f { display: flex; gap: 6px; margin-top: 2px; }
+#tracker .tk-pop-f span:first-child { flex: none; color: var(--muted); }
+@keyframes tk-popin { from { transform: translateY(-3px); } to { transform: none; } }   /* no opacity fade: the box must never sit invisible if animations are paused */
+@media (prefers-reduced-motion: reduce) { #tracker .tk-pop { animation: none; } }
 #tracker .tk-done { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; padding: 8px 12px; border-radius: 6px; font-size: 13px; color: var(--heading); background: rgba(63,185,80,.12); border: 1px solid rgba(63,185,80,.35); }
 #tracker .tk-done.tk-failed { background: rgba(248,81,73,.12); border-color: rgba(248,81,73,.4); }
 #tracker .tk-done[hidden] { display: none; }
@@ -2659,7 +2671,51 @@ const TK_TIERS = [
   const rows = new Map();   // model name -> persistent DOM nodes
   let closesAt = 0, finKeyShown = null, dismissedKey = null;
   try { dismissedKey = localStorage.getItem('tk-dismissed'); } catch (e) { /* no storage: dismissal lasts until reload */ }
-  function hidePanel() { $('tracker').hidden = true; rows.clear(); $('tk-models').replaceChildren(); }
+  // Stage description box. The wording of the descriptions is LLLMAdmin's. For the stage being tested now it also lists real reported
+  // facts only (model, step text, stage progress when the stage reports it, start time); nothing is estimated.
+  const TK_ZONE_INFO = {
+    speed: 'Measures how fast the model writes its answer, in words per second, using a standard set of prompts. A higher number means you wait less.',
+    tto: 'TTO is the time until the model starts answering on five typical tasks (coding, grammar, logic and more). Each answer is then graded for quality, so this shows both how quickly it responds and how good the answer is.',
+    gpu: 'Tries different amounts of the model on the graphics card, from a little to all of it, and times each one. It finds the setting that is fastest without running out of video memory.',
+    ctx: 'Tests the model with longer and longer amounts of text in memory, and times it at each size. It shows how much the model slows down as conversations get longer, and how long a conversation fits on your card.',
+    matrix: 'Combines the two sweeps above, trying many pairings of graphics-card use and text length. The result is a map of which settings work and which ones run out of memory, so the best setup can be picked.',
+  };
+  let pop = null, popFor = null;   // popFor = { r: row, i: zone index } while the box is open
+  function closePop() { if (pop) pop.hidden = true; if (popFor) popFor.r.zb[popFor.i].setAttribute('aria-expanded', 'false'); popFor = null; }
+  function fillPop() {
+    const { r, i } = popFor, m = r.m, z = m && m.zones[i];
+    if (!z) { closePop(); return; }
+    const cur = m.running && i === r.curIdx, done = z.total && z.done >= z.total, facts = [];
+    if (cur) {
+      facts.push(['Testing now', m.name]);
+      if (m.step) facts.push(['Step', m.step]);
+      if (!z.est) facts.push(['Stage progress', Math.floor(z.done) + '%']);
+      if (z.started) facts.push(['Stage started', new Date(z.started).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })]);
+    } else facts.push(['Status', done ? 'Done for ' + m.name : 'Not started yet for ' + m.name]);
+    const h = mk('div', 'tk-pop-h'), dot = mk('span', 'tk-pop-dot');
+    dot.style.background = z.color; h.append(dot, document.createTextNode(z.label));
+    pop.replaceChildren(h);
+    if (TK_ZONE_INFO[z.id]) pop.append(mk('div', 'tk-pop-t', TK_ZONE_INFO[z.id]));
+    pop.append(mk('div', 'tk-pop-sep'));
+    facts.forEach(([k, v]) => { const f = mk('div', 'tk-pop-f'); f.append(mk('span', null, k), mk('span', null, v)); pop.append(f); });
+  }
+  function placePop() {
+    const tr = $('tracker').getBoundingClientRect(), zr = popFor.r.zb[popFor.i].getBoundingClientRect();
+    pop.hidden = false;
+    pop.style.top = (zr.bottom - tr.top + 8) + 'px';
+    pop.style.left = Math.max(8, Math.min(zr.left - tr.left, tr.width - pop.offsetWidth - 8)) + 'px';
+  }
+  function togglePop(r, i) {
+    if (popFor && popFor.r === r && popFor.i === i) { closePop(); return; }   // second tap closes
+    closePop();
+    if (!pop) { pop = mk('div', 'tk-pop'); pop.setAttribute('role', 'dialog'); $('tracker').append(pop); }
+    popFor = { r, i }; r.zb[i].setAttribute('aria-expanded', 'true'); fillPop(); if (popFor) placePop();
+  }
+  function refreshPop() { if (!popFor) return; if (!popFor.r.el.isConnected) { closePop(); return; } fillPop(); if (popFor) placePop(); }
+  document.addEventListener('click', e => { if (popFor && !e.target.closest('.tk-pop, .tk-z, .tk-zl')) closePop(); });   // tap away closes
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePop(); });
+  window.addEventListener('resize', () => { if (popFor) placePop(); });   // a phone's address bar sliding fires resize: stay open, just re-place
+  function hidePanel() { closePop(); $('tracker').hidden = true; rows.clear(); $('tk-models').replaceChildren(); }
   function dismiss() {
     dismissedKey = finKeyShown;
     try { localStorage.setItem('tk-dismissed', dismissedKey); } catch (e) { /* ignore */ }
@@ -2706,9 +2762,12 @@ const TK_TIERS = [
     r.nm = mk('span', 'tk-mname', m.name); r.pill = mk('span', 'tk-run', 'RUNNING'); r.pct = mk('span');
     const head = mk('div', 'tk-mhead'); head.append(r.nm, r.pct);
     r.labels = mk('div', 'tk-zlabels'); r.bar = mk('div', 'tk-bar');
-    m.zones.forEach(() => {
+    m.zones.forEach((zz, zi) => {
       const l = mk('div', 'tk-zl'), zb = mk('div', 'tk-z'), f = mk('div', 'tk-fill'), s = mk('div', 'tk-stripe');
       s.hidden = true; zb.append(f, s); r.labels.append(l); r.bar.append(zb);
+      zb.tabIndex = 0; zb.setAttribute('role', 'button'); zb.setAttribute('aria-expanded', 'false');
+      l.addEventListener('click', () => togglePop(r, zi)); zb.addEventListener('click', () => togglePop(r, zi));
+      zb.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePop(r, zi); } });
       r.zl.push(l); r.zb.push(zb); r.fill.push(f); r.strip.push(s);
     });
     r.bar.append(r.sheen);
@@ -2741,6 +2800,7 @@ const TK_TIERS = [
       if (!r || r.sig !== m.zones.map(z => z.id).join()) { r = buildRow(m); rows.set(m.name, r); }   // reuse the DOM so CSS transitions animate
       seen.add(m.name);
       const w = zoneWidths(m.zones), curIdx = m.zones.findIndex(z => z.done < z.total);   // first unfinished zone
+      r.m = m; r.curIdx = curIdx;   // latest data, read by the stage description box
       r.pct.textContent = modelPct(m).toFixed(0) + '%';
       if (m.running) { if (!r.pill.isConnected) r.nm.append(r.pill); } else r.pill.remove();
       r.bar.classList.toggle('tk-bar-cur', !!m.running);
@@ -2783,6 +2843,7 @@ const TK_TIERS = [
     if (data.started) $('tk-start').textContent = new Date(data.started).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     if (fin) $('tk-elapsed').textContent = fmtDur(fin.duration_sec); else tickElapsed();
     panel.hidden = false;
+    refreshPop();
   }
   async function fetchTier(t) {
     const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), TK_TIMEOUT_MS);
