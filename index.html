@@ -891,8 +891,51 @@ if (typeof BENCHMARK_DATA === 'undefined') {
 // Models flagged `deleted` (listed in removed-models.yaml) stay in the data but are left out of every table, chart
 // and tab unless the "Show deleted models" toggle is on. The page is built once at load, so the toggle reloads it.
 const HAS_DELETED = (BENCHMARK_DATA.models || []).some(m => m.deleted) || ((BENCHMARK_DATA.hermes || {}).profiles || []).some(p => p.status === 'deleted');
-let SHOW_DELETED = false;
-try { SHOW_DELETED = (new URLSearchParams(location.search).get('deleted') ?? localStorage.getItem('show-deleted')) === '1'; } catch (e) { }
+// ── Hidden toggles ────────────────────────────────────────────────────────────
+// Page features with no control on the page, flipped through the address and remembered in this browser (localStorage):
+//   ?toggle=AddedDates   flips that toggle (on -> off, off -> on); names are not case sensitive
+//   ?toggle=A,B          flips several (or repeat the parameter)
+//   ?toggle=all          turns every toggle on and lists them in the browser console
+//   ?toggle=none         turns every toggle off
+// The parameter is removed from the address bar once it has run. To add a toggle: add an entry to TOGGLES; `on` (optional,
+// may be async) runs once after the table is built, and PAGE_TOGGLES.includes('Name') tells you whether it is on.
+const TOGGLES = {
+  AddedDates: {
+    desc: 'Adds an "Added" column (date each model was added) to the Model Comparison table.',
+    on: async () => {
+      await new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'added.js'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
+      if (typeof MODEL_ADDED === 'undefined') return;
+      cols.splice(1, 0, { key: 'added', label: 'Added', sv: m => MODEL_ADDED[m.name] ?? '', td: m => mkEl('td', { txt: MODEL_ADDED[m.name] ?? '—' }) });
+      buildHeader(); buildBody();
+    },
+  },
+  DeletedModels: {
+    desc: 'Shows models removed from this machine (results kept on record), tagged "deleted". Also flipped by clicking the run count in the header.',
+    // applied while the data is prepared (below), not afterwards
+  },
+};
+const TOGGLE_KEY = 'page-toggles';
+function readToggles() { try { return JSON.parse(localStorage.getItem(TOGGLE_KEY) || '[]').filter(n => n in TOGGLES); } catch (e) { return []; } }
+function writeToggles(list) { try { localStorage.setItem(TOGGLE_KEY, JSON.stringify(list)); } catch (e) { } }
+const PAGE_TOGGLES = (function () {
+  let on = readToggles();
+  const url = new URL(location.href), asked = url.searchParams.getAll('toggle').flatMap(v => v.split(',')).map(v => v.trim()).filter(Boolean);
+  if (!asked.length) return on;
+  const known = Object.keys(TOGGLES), byName = n => known.find(k => k.toLowerCase() === n.toLowerCase());
+  for (const a of asked) {
+    const k = byName(a);
+    if (a.toLowerCase() === 'all') {
+      on = [...known];
+      console.log('Toggles turned on (?toggle=all):');
+      known.forEach(n => console.log('  ' + n + ' - ' + TOGGLES[n].desc));
+    } else if (a.toLowerCase() === 'none') on = [];
+    else if (k) on = on.includes(k) ? on.filter(n => n !== k) : [...on, k];
+  }
+  writeToggles(on);
+  url.searchParams.delete('toggle'); history.replaceState(null, '', url);
+  return on;
+})();
+const SHOW_DELETED = PAGE_TOGGLES.includes('DeletedModels');
 function withoutDeleted(d) {
   const gone = new Set((d.models || []).filter(m => m.deleted).map(m => m.name));
   const keep = list => list && { ...list, models: list.models.filter(x => !gone.has(x.name) && !x.deleted) };
@@ -1064,16 +1107,14 @@ const gpuBadge = mkEl('span', { cls: 'badge badge-blue' });
 gpuBadge.textContent = `🖥 ${meta.gpuName} · ${V} GB VRAM`;
 const runsEl = mkEl('span', { txt: `${meta.benchmarkFiles.length} benchmark run(s)` });
 metaBar.append(gpuBadge, mkEl('span', { txt: `Updated ${meta.lastUpdated}` }), runsEl);
-// Quiet toggle: clicking the run count shows or hides deleted models (only when there are any). The page is built once at
-// load, so the click saves the choice and reloads on the same tab.
+// Quiet toggle: clicking the run count flips the DeletedModels toggle (only when there are any). The page is built once at
+// load, so the click saves the choice and reloads.
 if (HAS_DELETED) {
   runsEl.style.cursor = 'pointer';
   runsEl.title = SHOW_DELETED ? 'Click to hide deleted models' : 'Click to show deleted models';
   runsEl.addEventListener('click', () => {
-    try { localStorage.setItem('show-deleted', SHOW_DELETED ? '0' : '1'); } catch (e) { }
-    const url = new URL(location.href);
-    url.searchParams.set('deleted', SHOW_DELETED ? '0' : '1');   // explicit, so it also wins over a stored choice
-    location.replace(url);
+    writeToggles(SHOW_DELETED ? readToggles().filter(n => n !== 'DeletedModels') : [...readToggles(), 'DeletedModels']);
+    location.reload();
   });
 }
 
@@ -1367,40 +1408,9 @@ clearBtn.addEventListener('click', () => {
 
 buildHeader(); buildBody();
 
-// ── Hidden toggles ────────────────────────────────────────────────────────────
-// Page features with no control anywhere on the page, switched on only through the address: ?toggle=AddedDates (several:
-// ?toggle=A,B or repeat the parameter). ?toggle=all turns on every toggle below and lists them in the browser console.
-// To add one: add an entry here. `on` runs once after the table is built; it may be async.
-const TOGGLES = {
-  AddedDates: {
-    desc: 'Adds an "Added" column (date each model was added) to the Model Comparison table.',
-    on: async () => {
-      await new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'added.js'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
-      if (typeof MODEL_ADDED === 'undefined') return;
-      cols.splice(1, 0, { key: 'added', label: 'Added', sv: m => MODEL_ADDED[m.name] ?? '', td: m => mkEl('td', { txt: MODEL_ADDED[m.name] ?? '—' }) });
-      buildHeader(); buildBody();
-    },
-  },
-};
+// ── Hidden toggles (applied above; AddedDates runs here, once the table exists) ───────────────────────────────
 (async function () {
-  // ?toggle= adds to what is already on and the result is remembered in this browser (localStorage), so a reload keeps it.
-  // Off: ?toggle=-AddedDates turns one off, ?toggle=none turns all off.
-  const KEY = 'page-toggles', known = Object.keys(TOGGLES);
-  let on = [];
-  try { on = JSON.parse(localStorage.getItem(KEY) || '[]').filter(n => known.includes(n)); } catch (e) { }
-  const asked = new URLSearchParams(location.search).getAll('toggle').flatMap(v => v.split(',')).map(v => v.trim()).filter(Boolean);
-  const byName = n => known.find(k => k.toLowerCase() === n.toLowerCase());
-  for (const a of asked) {
-    if (a.toLowerCase() === 'all') {
-      on = [...known];
-      console.log('Toggles turned on (?toggle=all):');
-      known.forEach(n => console.log('  ' + n + ' - ' + TOGGLES[n].desc));
-    } else if (a.toLowerCase() === 'none') on = [];
-    else if (a[0] === '-') on = on.filter(n => n !== byName(a.slice(1)));
-    else if (byName(a) && !on.includes(byName(a))) on.push(byName(a));
-  }
-  if (asked.length) { try { localStorage.setItem(KEY, JSON.stringify(on)); } catch (e) { } }
-  for (const n of on) { try { await TOGGLES[n].on(); } catch (e) { console.warn('toggle ' + n + ' failed', e); } }
+  for (const n of PAGE_TOGGLES) { try { await TOGGLES[n].on?.(); } catch (e) { console.warn('toggle ' + n + ' failed', e); } }
 })();
 
 // ── Recommendations ───────────────────────────────────────────────────────────
