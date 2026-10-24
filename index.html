@@ -65,7 +65,8 @@ h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14
 .filter-select { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: border-color .15s; }
 .filter-select:hover, .filter-select:focus { border-color: var(--blue); outline: none; }
 .filter-select.active { background: rgba(56,139,253,.12); border-color: var(--blue); color: var(--blue); }
-.filter-clear { margin-left: auto; background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all .15s; }
+.filter-bar { position: relative; padding-right: 42px; }   /* room for the clear-filters icon pinned to the top-right */
+.filter-clear { position: absolute; top: 0; right: 0; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 28px; padding: 0; background: var(--surface); border: 1px solid var(--border); color: var(--muted); border-radius: 6px; cursor: pointer; transition: all .15s; }
 .filter-clear:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); }
 .filter-clear:disabled { opacity: .45; cursor: default; }
 
@@ -613,7 +614,7 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
         <span class="filter-label">Variant:</span>
         <button type="button" class="filter-btn-type" id="filter-abl" aria-pressed="false" title="Only models whose name contains 'abliterated' (safety refusals removed)">Abliterated</button>
       </span>
-      <button type="button" class="filter-clear" id="filter-clear" disabled title="Reset every filter above to All">&#10005; Clear filters</button>
+      <button type="button" class="filter-clear" id="filter-clear" disabled title="Clear filters" aria-label="Clear filters"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/><path d="M3 3l18 18"/></svg></button>
     </div>
     <div class="tbl-wrap">
       <table id="tbl">
@@ -1365,28 +1366,31 @@ clearBtn.addEventListener('click', () => {
 
 buildHeader(); buildBody();
 
-// ── Hidden "Added" column ─────────────────────────────────────────────────────
-// Opening the page with ?secret=<code> stores a cookie when the code's SHA-256 matches ADDED_KEY_HASH; while that cookie is
-// present the page loads added.js (model -> date added) and adds an "Added" column. This only keeps casual visitors out: the
-// hash, this check and added.js are all public. To change the code: SHA-256 of the new code, lowercase hex, pasted below
-// (PowerShell: [BitConverter]::ToString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes('code'))).Replace('-','').ToLower()).
-const ADDED_KEY_HASH = 'e70c8a6b0368fedbede9436f8290645fb0778f2131931013441794cc8541ad9e';
+// ── Hidden toggles ────────────────────────────────────────────────────────────
+// Page features with no control anywhere on the page, switched on only through the address: ?toggle=AddedDates (several:
+// ?toggle=A,B or repeat the parameter). ?toggle=all turns on every toggle below and lists them in the browser console.
+// To add one: add an entry here. `on` runs once after the table is built; it may be async.
+const TOGGLES = {
+  AddedDates: {
+    desc: 'Adds an "Added" column (date each model was added) to the Model Comparison table.',
+    on: async () => {
+      await new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'added.js'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
+      if (typeof MODEL_ADDED === 'undefined') return;
+      cols.splice(1, 0, { key: 'added', label: 'Added', sv: m => MODEL_ADDED[m.name] ?? '', td: m => mkEl('td', { txt: MODEL_ADDED[m.name] ?? '—' }) });
+      buildHeader(); buildBody();
+    },
+  },
+};
 (async function () {
-  try {
-    if (!(window.crypto && crypto.subtle)) return;
-    const sha = async t => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))].map(b => b.toString(16).padStart(2, '0')).join('');
-    const ck = 'bench_added=' + ADDED_KEY_HASH.slice(0, 16);
-    const url = new URL(location.href), code = url.searchParams.get('secret');
-    if (code !== null) {
-      url.searchParams.delete('secret'); history.replaceState(null, '', url);   // keep the code out of the address bar
-      if (await sha(code) === ADDED_KEY_HASH) document.cookie = ck + '; max-age=31536000; SameSite=Lax; path=' + (location.pathname.replace(/[^/]*$/, '') || '/') + (location.protocol === 'https:' ? '; Secure' : '');
-    }
-    if (!document.cookie.split('; ').includes(ck)) return;
-    await new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'added.js'; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
-    if (typeof MODEL_ADDED === 'undefined') return;
-    cols.splice(1, 0, { key: 'added', label: 'Added', sv: m => MODEL_ADDED[m.name] ?? '', td: m => mkEl('td', { txt: MODEL_ADDED[m.name] ?? '—' }) });
-    buildHeader(); buildBody();
-  } catch (e) { }
+  const asked = new URLSearchParams(location.search).getAll('toggle').flatMap(v => v.split(',')).map(v => v.trim().toLowerCase()).filter(Boolean);
+  if (!asked.length) return;
+  const all = asked.includes('all');
+  const names = Object.keys(TOGGLES).filter(n => all || asked.includes(n.toLowerCase()));
+  if (all) {
+    console.log('Toggles turned on (?toggle=all):');
+    names.forEach(n => console.log('  ' + n + ' - ' + TOGGLES[n].desc));
+  }
+  for (const n of names) { try { await TOGGLES[n].on(); } catch (e) { console.warn('toggle ' + n + ' failed', e); } }
 })();
 
 // ── Recommendations ───────────────────────────────────────────────────────────
