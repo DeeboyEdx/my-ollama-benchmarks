@@ -70,10 +70,6 @@ h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14
 .filter-clear:disabled { opacity: .45; cursor: default; }
 
 /* ── Deleted models (listed only while the toggle is on) ────── */
-.deleted-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 13px; color: var(--muted); }
-.deleted-bar[hidden] { display: none; }
-.deleted-bar label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
-.deleted-bar input { accent-color: var(--orange); width: 16px; height: 16px; cursor: pointer; }
 .deleted-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; background: rgba(240,136,62,.15); color: var(--orange); }
 tr.row-deleted td { opacity: .72; }
 
@@ -555,11 +551,6 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
 <main>
   <div class="stats-row" id="stats-row"></div>
 
-  <div class="deleted-bar" id="deleted-bar" hidden>
-    <label><input type="checkbox" id="show-deleted"> Show deleted models</label>
-    <span id="deleted-note"></span>
-  </div>
-
   <nav class="page-tabs-wrap">
     <div class="page-tabs" id="page-tabs">
     <button class="ptab active" data-page="benchmarks">📊 Benchmarks</button>
@@ -900,7 +891,7 @@ if (typeof BENCHMARK_DATA === 'undefined') {
 // and tab unless the "Show deleted models" toggle is on. The page is built once at load, so the toggle reloads it.
 const HAS_DELETED = (BENCHMARK_DATA.models || []).some(m => m.deleted) || ((BENCHMARK_DATA.hermes || {}).profiles || []).some(p => p.status === 'deleted');
 let SHOW_DELETED = false;
-try { SHOW_DELETED = new URLSearchParams(location.search).get('deleted') === '1' || localStorage.getItem('show-deleted') === '1'; } catch (e) { }
+try { SHOW_DELETED = (new URLSearchParams(location.search).get('deleted') ?? localStorage.getItem('show-deleted')) === '1'; } catch (e) { }
 function withoutDeleted(d) {
   const gone = new Set((d.models || []).filter(m => m.deleted).map(m => m.name));
   const keep = list => list && { ...list, models: list.models.filter(x => !gone.has(x.name) && !x.deleted) };
@@ -922,20 +913,6 @@ function withoutDeleted(d) {
 const D = SHOW_DELETED ? BENCHMARK_DATA : withoutDeleted(BENCHMARK_DATA);
 const { meta, tasks, models, recommendations, vramNotes, taskInfo } = D;
 const V = meta.vramGB;
-
-(function () {
-  const bar = document.getElementById('deleted-bar'), box = document.getElementById('show-deleted');
-  if (!HAS_DELETED) return;
-  bar.hidden = false; box.checked = SHOW_DELETED;
-  const n = (BENCHMARK_DATA.models || []).filter(m => m.deleted).length;
-  document.getElementById('deleted-note').textContent = n ? `(${n} model${n === 1 ? '' : 's'} removed from this machine; results kept on record)` : '';
-  box.addEventListener('change', () => {
-    try { localStorage.setItem('show-deleted', box.checked ? '1' : '0'); } catch (e) { }
-    const url = new URL(location.href);
-    url.searchParams.delete('deleted');
-    location.replace(url);   // same tab and filters-in-URL; the whole page rebuilds with or without the deleted models
-  });
-})();
 
 // ── Floating tooltip ──────────────────────────────────────────────────────────
 const tipEl = document.getElementById('tip');
@@ -1084,7 +1061,19 @@ Chart.defaults.font.size   = 12;
 const metaBar = document.getElementById('meta-bar');
 const gpuBadge = mkEl('span', { cls: 'badge badge-blue' });
 gpuBadge.textContent = `🖥 ${meta.gpuName} · ${V} GB VRAM`;
-metaBar.append(gpuBadge, mkEl('span', { txt: `Updated ${meta.lastUpdated}` }), mkEl('span', { txt: `${meta.benchmarkFiles.length} benchmark run(s)` }));
+const runsEl = mkEl('span', { txt: `${meta.benchmarkFiles.length} benchmark run(s)` });
+metaBar.append(gpuBadge, mkEl('span', { txt: `Updated ${meta.lastUpdated}` }), runsEl);
+// Quiet toggle: clicking the run count shows or hides deleted models (only when there are any). The page is built once at
+// load, so the click saves the choice and reloads on the same tab.
+if (HAS_DELETED) {
+  runsEl.title = SHOW_DELETED ? 'Click to hide deleted models' : 'Click to show deleted models';
+  runsEl.addEventListener('click', () => {
+    try { localStorage.setItem('show-deleted', SHOW_DELETED ? '0' : '1'); } catch (e) { }
+    const url = new URL(location.href);
+    url.searchParams.set('deleted', SHOW_DELETED ? '0' : '1');   // explicit, so it also wins over a stored choice
+    location.replace(url);
+  });
+}
 
 document.getElementById('footer-txt').innerHTML = `Generated from <a href="https://github.com/DeeboyEdx/z440-ollama-benchmarking" target="_blank">DeeboyEdx/z440-ollama-benchmarking</a> · Updated ${meta.lastUpdated}`;
 
@@ -1375,6 +1364,30 @@ clearBtn.addEventListener('click', () => {
 // the other filters ('Show', Architecture, Attention) already rebuild the body, which refreshes the button
 
 buildHeader(); buildBody();
+
+// ── Hidden "Added" column ─────────────────────────────────────────────────────
+// Opening the page with ?secret=<code> stores a cookie when the code's SHA-256 matches ADDED_KEY_HASH; while that cookie is
+// present the page loads added.js (model -> date added) and adds an "Added" column. This only keeps casual visitors out: the
+// hash, this check and added.js are all public. To change the code: SHA-256 of the new code, lowercase hex, pasted below
+// (PowerShell: [BitConverter]::ToString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes('code'))).Replace('-','').ToLower()).
+const ADDED_KEY_HASH = 'e70c8a6b0368fedbede9436f8290645fb0778f2131931013441794cc8541ad9e';
+(async function () {
+  try {
+    if (!(window.crypto && crypto.subtle)) return;
+    const sha = async t => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))].map(b => b.toString(16).padStart(2, '0')).join('');
+    const ck = 'bench_added=' + ADDED_KEY_HASH.slice(0, 16);
+    const url = new URL(location.href), code = url.searchParams.get('secret');
+    if (code !== null) {
+      url.searchParams.delete('secret'); history.replaceState(null, '', url);   // keep the code out of the address bar
+      if (await sha(code) === ADDED_KEY_HASH) document.cookie = ck + '; max-age=31536000; SameSite=Lax; path=' + (location.pathname.replace(/[^/]*$/, '') || '/') + (location.protocol === 'https:' ? '; Secure' : '');
+    }
+    if (!document.cookie.split('; ').includes(ck)) return;
+    await new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'added.js'; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+    if (typeof MODEL_ADDED === 'undefined') return;
+    cols.splice(1, 0, { key: 'added', label: 'Added', sv: m => MODEL_ADDED[m.name] ?? '', td: m => mkEl('td', { txt: MODEL_ADDED[m.name] ?? '—' }) });
+    buildHeader(); buildBody();
+  } catch (e) { }
+})();
 
 // ── Recommendations ───────────────────────────────────────────────────────────
 const recRow = document.getElementById('rec-row');
