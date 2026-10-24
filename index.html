@@ -910,7 +910,7 @@ const TOGGLES = {
     },
   },
   DeletedModels: {
-    desc: 'Shows models removed from this machine (results kept on record), tagged "deleted". Also flipped by clicking the run count in the header.',
+    desc: 'Shows models removed from this machine (results kept on record), tagged "deleted". Also flipped by clicking the model count in the header.',
     // applied while the data is prepared (below), not afterwards
   },
 };
@@ -928,7 +928,11 @@ const PAGE_TOGGLES = (function () {
       on = [...known];
       console.log('Toggles turned on (?toggle=all):');
       known.forEach(n => console.log('  ' + n + ' - ' + TOGGLES[n].desc));
-    } else if (a.toLowerCase() === 'none') on = [];
+    } else if (a.toLowerCase() === 'none') {
+      console.log('Toggles turned off (?toggle=none):');
+      known.forEach(n => console.log('  ' + n + ' - ' + TOGGLES[n].desc + (on.includes(n) ? ' (was on)' : ' (was already off)')));
+      on = [];
+    }
     else if (k) on = on.includes(k) ? on.filter(n => n !== k) : [...on, k];
   }
   writeToggles(on);
@@ -1105,9 +1109,9 @@ Chart.defaults.font.size   = 12;
 const metaBar = document.getElementById('meta-bar');
 const gpuBadge = mkEl('span', { cls: 'badge badge-blue' });
 gpuBadge.textContent = `🖥 ${meta.gpuName} · ${V} GB VRAM`;
-const runsEl = mkEl('span', { txt: `${meta.benchmarkFiles.length} benchmark run(s)` });
+const runsEl = mkEl('span', { txt: `${models.length} Models benchmarked` });   // follows the DeletedModels toggle
 metaBar.append(gpuBadge, mkEl('span', { txt: `Updated ${meta.lastUpdated}` }), runsEl);
-// Quiet toggle: clicking the run count flips the DeletedModels toggle (only when there are any). The page is built once at
+// Quiet toggle: clicking the model count flips the DeletedModels toggle (only when there are any). The page is built once at
 // load, so the click saves the choice and reloads.
 if (HAS_DELETED) {
   runsEl.style.cursor = 'pointer';
@@ -1129,6 +1133,7 @@ const statsRow = document.getElementById('stats-row');
 [
   { label: 'Models Tested', value: models.length,                               sub: `${fitCount} fit in VRAM` },
   { label: 'VRAM Limit',    value: `${V} GB`,                                   sub: meta.gpuName },
+  { label: 'Benchmark Runs', value: meta.benchmarkFiles.length,                 sub: 'full test batteries' },
   { label: 'Fastest Gen',   value: fastest  ? `${fastest.genSpeedTps} T/s` : '—', sub: fastest?.name  ?? '' },
   { label: 'Best Quality',  value: topQual  ? `${topQual.avgQualityScore}/5` : '—', sub: topQual?.name ?? '' },
 ].forEach(s => {
