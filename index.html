@@ -65,6 +65,44 @@ h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14
 .filter-select { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: border-color .15s; }
 .filter-select:hover, .filter-select:focus { border-color: var(--blue); outline: none; }
 .filter-select.active { background: rgba(56,139,253,.12); border-color: var(--blue); color: var(--blue); }
+.filter-clear { margin-left: auto; background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all .15s; }
+.filter-clear:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); }
+.filter-clear:disabled { opacity: .45; cursor: default; }
+
+/* ── Deleted models (listed only while the toggle is on) ────── */
+.deleted-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+.deleted-bar[hidden] { display: none; }
+.deleted-bar label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.deleted-bar input { accent-color: var(--orange); width: 16px; height: 16px; cursor: pointer; }
+.deleted-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; background: rgba(240,136,62,.15); color: var(--orange); }
+tr.row-deleted td { opacity: .72; }
+
+/* ── Hermes tab ─────────────────────────────────────────────── */
+.hm-intro { font-size: 13px; color: var(--muted); margin: 0 0 16px; max-width: 80ch; }
+.hm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 16px; align-items: start; }
+.hm-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.hm-card.hm-deleted { border-style: dashed; }
+.hm-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.hm-name { font-family: 'Courier New', monospace; font-weight: 700; font-size: 15px; color: var(--heading); overflow-wrap: anywhere; min-width: 0; }
+.hm-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.hm-score { text-align: right; flex: none; }
+.hm-score b { display: block; font-size: 26px; line-height: 1.1; color: var(--heading); }
+.hm-score span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.hm-summary { font-size: 13px; color: var(--text); }
+.hm-bars { display: grid; grid-template-columns: minmax(110px, 40%) 1fr 32px; gap: 4px 8px; align-items: center; font-size: 12px; }
+.hm-lbl { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-track { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+.hm-fill { height: 100%; border-radius: 4px; }
+.hm-num { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+.hm-num.hm-na { color: var(--muted); }
+.hm-sec h4 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 4px; }
+.hm-sec ul { list-style: none; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.hm-sec li { padding-left: 18px; position: relative; }
+.hm-sec li::before { position: absolute; left: 0; }
+.hm-good li::before { content: '\2713'; color: var(--green); }
+.hm-bad li::before { content: '\2717'; color: var(--orange); }
+.hm-note li { color: var(--muted); }
+.hm-note li::before { content: '\2022'; }
 
 /* ── Table ───────────────────────────────────────────────────── */
 .tbl-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
@@ -517,6 +555,11 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
 <main>
   <div class="stats-row" id="stats-row"></div>
 
+  <div class="deleted-bar" id="deleted-bar" hidden>
+    <label><input type="checkbox" id="show-deleted"> Show deleted models</label>
+    <span id="deleted-note"></span>
+  </div>
+
   <nav class="page-tabs-wrap">
     <div class="page-tabs" id="page-tabs">
     <button class="ptab active" data-page="benchmarks">📊 Benchmarks</button>
@@ -524,6 +567,7 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
     <button class="ptab" data-page="gpu-sweep" style="display:none">🎯 GPU Sweep</button>
     <button class="ptab" data-page="ctx-sweep" style="display:none">📈 Ctx Sweep</button>
     <button class="ptab" data-page="matrix" style="display:none">🌐 3D Surface</button>
+    <button class="ptab" data-page="hermes" style="display:none">🪽 Hermes</button>
     </div>
   </nav>
   <div class="page-pager" id="page-pager" role="navigation" aria-label="Page navigation">
@@ -574,6 +618,11 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
           <button class="filter-btn-cap active" data-c="all">All</button>
         </span>
       </span>
+      <span class="filter-group">
+        <span class="filter-label">Variant:</span>
+        <button type="button" class="filter-btn-type" id="filter-abl" aria-pressed="false" title="Only models whose name contains 'abliterated' (safety refusals removed)">Abliterated</button>
+      </span>
+      <button type="button" class="filter-clear" id="filter-clear" disabled title="Reset every filter above to All">&#10005; Clear filters</button>
     </div>
     <div class="tbl-wrap">
       <table id="tbl">
@@ -828,6 +877,14 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
     <div id="matrix-optima" style="margin-top:16px"></div>
   </section>
 </div><!-- #page-matrix -->
+
+<div id="page-hermes" style="display:none">
+  <section>
+    <h2>🪽 Hermes Agent Profiles</h2>
+    <p class="hm-intro" id="hm-intro"></p>
+    <div class="hm-grid" id="hm-grid"></div>
+  </section>
+</div><!-- #page-hermes -->
 </main>
 
 <footer><div id="footer-txt"></div></footer>
@@ -839,9 +896,46 @@ if (typeof BENCHMARK_DATA === 'undefined') {
   throw new Error('BENCHMARK_DATA not defined');
 }
 
-const D = BENCHMARK_DATA;
+// Models flagged `deleted` (listed in removed-models.yaml) stay in the data but are left out of every table, chart
+// and tab unless the "Show deleted models" toggle is on. The page is built once at load, so the toggle reloads it.
+const HAS_DELETED = (BENCHMARK_DATA.models || []).some(m => m.deleted) || ((BENCHMARK_DATA.hermes || {}).profiles || []).some(p => p.status === 'deleted');
+let SHOW_DELETED = false;
+try { SHOW_DELETED = new URLSearchParams(location.search).get('deleted') === '1' || localStorage.getItem('show-deleted') === '1'; } catch (e) { }
+function withoutDeleted(d) {
+  const gone = new Set((d.models || []).filter(m => m.deleted).map(m => m.name));
+  const keep = list => list && { ...list, models: list.models.filter(x => !gone.has(x.name) && !x.deleted) };
+  const gc = d.graderComparison;
+  return {
+    ...d,
+    models:          (d.models || []).filter(m => !gone.has(m.name)),
+    recommendations: (d.recommendations || []).filter(r => !gone.has(r.model)),
+    vramNotes:       (d.vramNotes || []).filter(v => !gone.has(v.model)),
+    ctxSweep: keep(d.ctxSweep), gpuSweep: keep(d.gpuSweep), matrixSweep: keep(d.matrixSweep),
+    graderComparison: gc && {
+      ...gc,
+      graders: gc.graders.filter(g => !gone.has(g)),
+      stats:   gc.stats.filter(x => !gone.has(x.grader)),
+      cells:   gc.cells.filter(c => !gone.has(c.gradedModel)),
+    },
+  };
+}
+const D = SHOW_DELETED ? BENCHMARK_DATA : withoutDeleted(BENCHMARK_DATA);
 const { meta, tasks, models, recommendations, vramNotes, taskInfo } = D;
 const V = meta.vramGB;
+
+(function () {
+  const bar = document.getElementById('deleted-bar'), box = document.getElementById('show-deleted');
+  if (!HAS_DELETED) return;
+  bar.hidden = false; box.checked = SHOW_DELETED;
+  const n = (BENCHMARK_DATA.models || []).filter(m => m.deleted).length;
+  document.getElementById('deleted-note').textContent = n ? `(${n} model${n === 1 ? '' : 's'} removed from this machine; results kept on record)` : '';
+  box.addEventListener('change', () => {
+    try { localStorage.setItem('show-deleted', box.checked ? '1' : '0'); } catch (e) { }
+    const url = new URL(location.href);
+    url.searchParams.delete('deleted');
+    location.replace(url);   // same tab and filters-in-URL; the whole page rebuilds with or without the deleted models
+  });
+})();
 
 // ── Floating tooltip ──────────────────────────────────────────────────────────
 const tipEl = document.getElementById('tip');
@@ -1016,7 +1110,8 @@ const statsRow = document.getElementById('stats-row');
 });
 
 // ── Model table ───────────────────────────────────────────────────────────────
-let sortKey = 'avgTtoS', sortDir = 1, filterMode = 'all', filterType = 'all', filterAttn = 'all', filterCaps = new Set();
+let sortKey = 'avgTtoS', sortDir = 1, filterMode = 'all', filterType = 'all', filterAttn = 'all', filterCaps = new Set(), filterAbl = false;
+const isAbliterated = name => /abliterated/i.test(name);   // name rule, so future abliterated models are picked up
 
 const taskColors = {
   Smoke:       '#388bfd',
@@ -1073,6 +1168,7 @@ const cols = [
       span.addEventListener('mouseleave', hideTip);
       span.addEventListener('click', () => applyModelProfile(m));
       td.appendChild(span);
+      if (m.deleted) td.appendChild(mkEl('span', { cls: 'deleted-tag', txt: 'deleted', title: 'No longer installed; results kept on record' }));
       return td;
     } },
   { key: 'params',      label: 'Params',           sv: m => { const v = parseFloat(m.params); return isNaN(v) ? 0 : v; },
@@ -1115,6 +1211,7 @@ function buildBody() {
   if (filterMode === 'over') rows = rows.filter(m => !m.fitsInVram);
   if (filterType !== 'all')  rows = rows.filter(m => archOf(m.name) === filterType);
   if (filterAttn !== 'all')  rows = rows.filter(m => (m.bio?.attention ?? 'unknown') === filterAttn);
+  if (filterAbl)             rows = rows.filter(m => isAbliterated(m.name));
   if (filterCaps.size > 0)   rows = rows.filter(m => { const caps = m.bio?.capabilities ?? []; for (const c of filterCaps) if (!caps.includes(c)) return false; return true; });
   const col = cols.find(c => c.key === sortKey);
   const cmpVals = (av, bv) => {
@@ -1136,11 +1233,13 @@ function buildBody() {
   rows.forEach((m, i) => {
     const tr = mkEl('tr');
     tr.dataset.model = m.name;
+    if (m.deleted) tr.classList.add('row-deleted');
     tr.classList.add('row-dropin');
     tr.style.animationDelay = (i * 40) + 'ms';
     cols.forEach(c => tr.appendChild(c.td(m)));
     tbody.appendChild(tr);
   });
+  syncClearButton();
   applyModelHighlight();
 }
 
@@ -1259,6 +1358,21 @@ function applyModelProfile(m) {
   buildBody();
   document.getElementById('page-benchmarks')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
+// Clear filters: back to All on every control above the table (the sort order is left alone).
+const clearBtn = document.getElementById('filter-clear');
+function filtersActive() { return filterMode !== 'all' || filterType !== 'all' || filterAttn !== 'all' || filterCaps.size > 0 || filterAbl; }
+const ablBtn = document.getElementById('filter-abl');
+function syncAblButton() { ablBtn.classList.toggle('active', filterAbl); ablBtn.setAttribute('aria-pressed', String(filterAbl)); }
+ablBtn.addEventListener('click', () => { filterAbl = !filterAbl; syncAblButton(); buildBody(); });
+function syncClearButton() { clearBtn.disabled = !filtersActive(); }
+clearBtn.addEventListener('click', () => {
+  filterMode = 'all'; filterType = 'all'; filterAttn = 'all'; filterCaps = new Set(); filterAbl = false;
+  syncAblButton(); syncShowSelect(); syncTypeButtons(); syncAttnSelect(); syncCapButtons();
+  syncUrlForModel(null);
+  buildBody();
+});
+// the other filters ('Show', Architecture, Attention) already rebuild the body, which refreshes the button
 
 buildHeader(); buildBody();
 
@@ -1550,6 +1664,7 @@ function activatePage(page, direction) {
     document.getElementById('page-ctx-sweep').style.display  = page === 'ctx-sweep'  ? '' : 'none';
     document.getElementById('page-gpu-sweep').style.display  = page === 'gpu-sweep'  ? '' : 'none';
     document.getElementById('page-matrix').style.display     = page === 'matrix'     ? '' : 'none';
+    document.getElementById('page-hermes').style.display     = page === 'hermes'     ? '' : 'none';
     if (page === 'ctx-sweep' && !ctxSweepBuilt) { buildCtxSweep(); ctxSweepBuilt = true; }
     if (page === 'gpu-sweep' && !gpuSweepBuilt) { buildGpuSweep(); gpuSweepBuilt = true; }
     if (page === 'matrix') {
@@ -1695,6 +1810,7 @@ const TAB_SLUG = {
   'gpu-sweep':  'gpu-sweep',
   'ctx-sweep':  'ctx-sweep',
   'matrix':     '3d-surface',
+  'hermes':     'hermes',
 };
 // Accepted aliases (all matched case-insensitively, hyphens/spaces ignored).
 const TAB_ALIASES = {
@@ -1703,6 +1819,7 @@ const TAB_ALIASES = {
   'gpu-sweep':      ['gpu', 'gpusweep', 'gpu-sweep'],
   'ctx-sweep':      ['ctx', 'ctxsweep', 'ctx-sweep', 'context', 'contextsweep'],
   'matrix':         ['matrix', 'surface', '3d', '3dsurface', '3d-surface'],
+  'hermes':         ['hermes', 'agent', 'profiles'],
 };
 function pageFromParam(raw) {
   if (raw == null || raw === '') return null;
@@ -2481,9 +2598,9 @@ if (matrixData?.models?.length) {
   function renderOptimaTable(m) {
     const wrap = document.getElementById('matrix-optima');
     if (!wrap) return;
-    const gpuRow = findSweepRow(BENCHMARK_DATA.gpuSweep, m.name);
-    const ctxRow = findSweepRow(BENCHMARK_DATA.ctxSweep, m.name);
-    const modelBio = (BENCHMARK_DATA.models || []).find(x => x.name === m.name) || {};
+    const gpuRow = findSweepRow(D.gpuSweep, m.name);
+    const ctxRow = findSweepRow(D.ctxSweep, m.name);
+    const modelBio = (D.models || []).find(x => x.name === m.name) || {};
     const defaultCtx = modelBio.context != null ? modelBio.context
                      : (ctxRow && ctxRow.defaultCtx != null ? ctxRow.defaultCtx : null);
 
@@ -2589,6 +2706,63 @@ if (matrixData?.models?.length) {
     }, 200);
   });
 }
+
+// ── Hermes agent profiles ─────────────────────────────────────────────────────
+// One card per model, best composite first. Wording comes from hermes-profiles.json (LLLMAdmin), embedded as D.hermes.
+(function () {
+  const H = BENCHMARK_DATA.hermes;
+  if (!H || !(H.profiles || []).length) return;
+  const profiles = H.profiles
+    .filter(p => SHOW_DELETED || p.status !== 'deleted')
+    .sort((a, b) => (b.composite ?? -1) - (a.composite ?? -1));
+  if (!profiles.length) return;
+  document.querySelector('[data-page="hermes"]').style.display = '';
+  refreshPager();
+  const names = H.category_names || {};
+  const cats = Object.keys(names).sort();
+  const tone = v => v >= 75 ? 'var(--green)' : v >= 50 ? 'var(--yellow)' : 'var(--orange)';
+  document.getElementById('hm-intro').textContent =
+    `How each model did as the brain of the Hermes agent: the Hermes focused-core battery (22 cases, 3 repeats each), scored 0-100 per category and combined into a weighted composite.` +
+    (H.updated ? ` Updated ${H.updated}.` : '');
+  const grid = document.getElementById('hm-grid');
+  const list = (cls, title, items) => {
+    if (!items || !items.length) return null;
+    const sec = mkEl('div', { cls: 'hm-sec ' + cls });
+    const ul = mkEl('ul');
+    items.forEach(t => ul.appendChild(mkEl('li', { txt: t })));
+    sec.append(mkEl('h4', { txt: title }), ul);
+    return sec;
+  };
+  profiles.forEach(p => {
+    const card = mkEl('div', { cls: 'hm-card' + (p.status === 'deleted' ? ' hm-deleted' : '') });
+    const name = mkEl('div', { cls: 'hm-name', txt: p.model });
+    if (p.status === 'deleted') name.appendChild(mkEl('span', { cls: 'deleted-tag', txt: 'deleted' }));
+    const meta = [];
+    if (p.tested) meta.push('tested ' + p.tested);
+    if (p.runs != null) meta.push(p.runs + ' runs');
+    if (p.median_latency_s != null) meta.push('median ' + p.median_latency_s + ' s');
+    if (p.status === 'deleted' && p.removed) meta.push('removed ' + p.removed);
+    const left = mkEl('div'); left.append(name, mkEl('div', { cls: 'hm-meta', txt: meta.join(' · ') }));
+    const score = mkEl('div', { cls: 'hm-score' });
+    score.append(mkEl('b', { txt: p.composite != null ? String(p.composite) : '—' }),
+                 mkEl('span', { txt: p.composite_partial ? 'composite (stopped early)' : 'composite' }));
+    const head = mkEl('div', { cls: 'hm-head' }); head.append(left, score);
+    card.appendChild(head);
+    if (p.summary) card.appendChild(mkEl('div', { cls: 'hm-summary', txt: p.summary }));
+    const bars = mkEl('div', { cls: 'hm-bars' });
+    cats.forEach(c => {
+      const v = (p.categories || {})[c];
+      const track = mkEl('div', { cls: 'hm-track' });
+      if (v != null) track.appendChild(mkEl('div', { cls: 'hm-fill', style: { width: v + '%', background: tone(v) } }));
+      bars.append(mkEl('div', { cls: 'hm-lbl', txt: names[c] || c, title: names[c] || c }), track,
+                  mkEl('div', { cls: 'hm-num' + (v == null ? ' hm-na' : ''), txt: v == null ? '—' : String(v) }));
+    });
+    card.appendChild(bars);
+    [list('hm-good', 'Good for', p.good_for), list('hm-bad', 'Not good for', p.not_good_for), list('hm-note', 'Notes', p.notes)]
+      .forEach(sec => { if (sec) card.appendChild(sec); });
+    grid.appendChild(card);
+  });
+})();
 
 (function () {
   let pageHash = null;
