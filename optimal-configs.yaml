@@ -1,4 +1,4 @@
-generated: 2026-10-24 16:49
+generated: 2026-10-24 16:57
 gpu: NVIDIA GeForce RTX 4060 Ti
 vram_gb: 16
 notes:
@@ -67,18 +67,22 @@ models:
       num_ctx: 43520
       tps: 51.49
       source: ctx-sweep
-  gemma3-12b:
+  gemma3:12b:
+    gpu_sweep:
+      num_gpu: 49
+      num_ctx: 
+      tps: 15.18
+      max_layers: 49
+    ctx_sweep:
+      num_ctx: 61184
+      tps: 30.18
+      default_ctx: 131072
+      bounded_by: cap
     matrix_surface:
       num_gpu: 49
-      num_ctx: 60928
-      tps: 30.29
-      source: weighted (tps * log2(ctx))
-  gemma4-31b:
-    matrix_surface:
-      num_gpu: 53
-      num_ctx: 131072
-      tps: 4.82
-      source: weighted (tps * log2(ctx))
+      num_ctx: 61184
+      tps: 30.18
+      source: ctx-sweep
   gemma4:26b:
     gpu_sweep:
       num_gpu: 25
@@ -89,6 +93,17 @@ models:
       num_gpu: 27
       num_ctx: 131072
       tps: 18.56
+      source: weighted (tps * log2(ctx))
+  gemma4:31b:
+    gpu_sweep:
+      num_gpu: 50
+      num_ctx: 
+      tps: 4.53
+      max_layers: 61
+    matrix_surface:
+      num_gpu: 53
+      num_ctx: 131072
+      tps: 4.82
       source: weighted (tps * log2(ctx))
   gemma4:e4b:
     gpu_sweep:
@@ -277,12 +292,22 @@ models:
       num_ctx: 524288
       tps: 54.17
       source: ctx-sweep
-  qwen3-14b:
+  qwen3:14b:
+    gpu_sweep:
+      num_gpu: 41
+      num_ctx: 
+      tps: 17.94
+      max_layers: 41
+    ctx_sweep:
+      num_ctx: 22016
+      tps: 28.15
+      default_ctx: 40960
+      bounded_by: cap
     matrix_surface:
       num_gpu: 41
-      num_ctx: 21504
-      tps: 28.43
-      source: weighted (tps * log2(ctx))
+      num_ctx: 22016
+      tps: 28.15
+      source: ctx-sweep
   qwen3.5:9b:
     gpu_sweep:
       num_gpu: 33

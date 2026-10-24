@@ -1114,7 +1114,8 @@ Chart.defaults.font.size   = 12;
 const metaBar = document.getElementById('meta-bar');
 const gpuBadge = mkEl('span', { cls: 'badge badge-blue' });
 gpuBadge.textContent = `🖥 ${meta.gpuName} · ${V} GB VRAM`;
-const runsEl = mkEl('span', { txt: `${models.length} Models benchmarked` });   // follows the DeletedModels toggle
+const nDel = models.filter(m => m.deleted).length;
+const runsEl = mkEl('span', { txt: `${models.length} Models benchmarked` + (nDel ? ` (incl. ${nDel} deleted)` : '') });   // follows the DeletedModels toggle
 metaBar.append(gpuBadge, mkEl('span', { txt: `Updated ${meta.lastUpdated}` }), runsEl);
 // Quiet toggle: clicking the model count flips the DeletedModels toggle (only when there are any). The page is built once at
 // load, so the click saves the choice and reloads.
@@ -2057,7 +2058,7 @@ if (gc?.cells?.length && gc?.stats?.length) {
       const biasClass = s.bias > 0.2 ? 'bias-pos' : s.bias < -0.2 ? 'bias-neg' : '';
       tr.innerHTML = `
         <td style="text-align:center">${medals[origRank] ?? (origRank + 1)}</td>
-        <td><code>${s.grader}</code></td>
+        <td><code>${s.grader}</code>${delTagHTML(s.grader)}</td>
         <td class="num"><strong>${s.exactMatch}%</strong></td>
         <td class="num">${s.within1}%</td>
         <td class="num ${biasClass}">${biasStr}</td>
@@ -2118,7 +2119,7 @@ if (gc?.cells?.length && gc?.stats?.length) {
 
     gradersRanked.forEach((g, i) => {
       const th = mkEl('th');
-      th.innerHTML = `${medals[i] ?? ''} <code style="font-size:10px">${g}</code>`;
+      th.innerHTML = `${medals[i] ?? ''} <code style="font-size:10px">${g}</code>${delTagHTML(g)}`;
       if (gcSortCol === g) th.dataset.sort = gcSortDir === 1 ? 'asc' : 'desc';
       th.addEventListener('click', () => {
         if (gcSortCol === g) gcSortDir *= -1; else { gcSortCol = g; gcSortDir = -1; }
@@ -2143,7 +2144,8 @@ if (gc?.cells?.length && gc?.stats?.length) {
     const totalCols = 2 + gradersRanked.length;
     sorted.forEach(group => {
       const mRow = mkEl('tr');
-      const mTd  = mkEl('td', { cls: 'gc-model-hdr-cell', txt: delText(group.model) });
+      const mTd  = mkEl('td', { cls: 'gc-model-hdr-cell', txt: group.model });
+      if (DELETED_NAMES.has(group.model)) mTd.appendChild(mkEl('span', { cls: 'deleted-tag', txt: 'deleted' }));
       mTd.colSpan = totalCols;
       mRow.appendChild(mTd);
       tbody.appendChild(mRow);
