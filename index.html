@@ -1067,6 +1067,7 @@ metaBar.append(gpuBadge, mkEl('span', { txt: `Updated ${meta.lastUpdated}` }), r
 // Quiet toggle: clicking the run count shows or hides deleted models (only when there are any). The page is built once at
 // load, so the click saves the choice and reloads on the same tab.
 if (HAS_DELETED) {
+  runsEl.style.cursor = 'pointer';
   runsEl.title = SHOW_DELETED ? 'Click to hide deleted models' : 'Click to show deleted models';
   runsEl.addEventListener('click', () => {
     try { localStorage.setItem('show-deleted', SHOW_DELETED ? '0' : '1'); } catch (e) { }
@@ -1382,15 +1383,24 @@ const TOGGLES = {
   },
 };
 (async function () {
-  const asked = new URLSearchParams(location.search).getAll('toggle').flatMap(v => v.split(',')).map(v => v.trim().toLowerCase()).filter(Boolean);
-  if (!asked.length) return;
-  const all = asked.includes('all');
-  const names = Object.keys(TOGGLES).filter(n => all || asked.includes(n.toLowerCase()));
-  if (all) {
-    console.log('Toggles turned on (?toggle=all):');
-    names.forEach(n => console.log('  ' + n + ' - ' + TOGGLES[n].desc));
+  // ?toggle= adds to what is already on and the result is remembered in this browser (localStorage), so a reload keeps it.
+  // Off: ?toggle=-AddedDates turns one off, ?toggle=none turns all off.
+  const KEY = 'page-toggles', known = Object.keys(TOGGLES);
+  let on = [];
+  try { on = JSON.parse(localStorage.getItem(KEY) || '[]').filter(n => known.includes(n)); } catch (e) { }
+  const asked = new URLSearchParams(location.search).getAll('toggle').flatMap(v => v.split(',')).map(v => v.trim()).filter(Boolean);
+  const byName = n => known.find(k => k.toLowerCase() === n.toLowerCase());
+  for (const a of asked) {
+    if (a.toLowerCase() === 'all') {
+      on = [...known];
+      console.log('Toggles turned on (?toggle=all):');
+      known.forEach(n => console.log('  ' + n + ' - ' + TOGGLES[n].desc));
+    } else if (a.toLowerCase() === 'none') on = [];
+    else if (a[0] === '-') on = on.filter(n => n !== byName(a.slice(1)));
+    else if (byName(a) && !on.includes(byName(a))) on.push(byName(a));
   }
-  for (const n of names) { try { await TOGGLES[n].on(); } catch (e) { console.warn('toggle ' + n + ' failed', e); } }
+  if (asked.length) { try { localStorage.setItem(KEY, JSON.stringify(on)); } catch (e) { } }
+  for (const n of on) { try { await TOGGLES[n].on(); } catch (e) { console.warn('toggle ' + n + ' failed', e); } }
 })();
 
 // ── Recommendations ───────────────────────────────────────────────────────────
