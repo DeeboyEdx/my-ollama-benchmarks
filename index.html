@@ -82,7 +82,7 @@ h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14
 .filter-clear { position: absolute; top: 0; right: 0; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 28px; padding: 0; background: var(--surface); border: 1px solid var(--border); color: var(--muted); border-radius: 6px; cursor: pointer; transition: all .15s; }
 .filter-clear:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); }
 .filter-clear:disabled { opacity: .45; cursor: default; }
-.filter-toggle, .filter-count { display: none; }
+.filter-toggle, .filter-count, .filter-done { display: none; }
 @media (max-width: 600px) {
   /* Phones: a "Filters" button (with the number of active filters); the controls open in a panel under it */
   .filter-bar { gap: 8px; padding-right: 38px; min-height: 40px; }
@@ -99,6 +99,8 @@ h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14
   .filter-bar.open > .filter-group .filter-select { width: 100%; padding: 8px 10px; font-size: 14px; }
   .filter-bar.open .filter-btn-cap, .filter-bar.open .filter-btn-type { padding: 7px 12px; }
   .filter-bar.open .filter-btn-type { align-self: flex-start; }
+  /* closes the panel; sits at the bottom right, beside the Variant button */
+  .filter-bar.open .filter-done { display: block; position: absolute; right: 10px; bottom: 12px; background: var(--blue); border: 1px solid var(--blue); color: #fff; padding: 9px 14px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
 }
 
 /* ── Deleted models (listed only while the toggle is on) ────── */
@@ -671,6 +673,7 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
         <span class="filter-label">Variant:</span>
         <button type="button" class="filter-btn-type" id="filter-abl" aria-pressed="false" title="Only models whose name contains 'abliterated' (safety refusals removed)">Abliterated</button>
       </span>
+      <button type="button" class="filter-done" id="filter-done">Show 0 models</button>
       <button type="button" class="filter-clear" id="filter-clear" disabled title="Clear filters" aria-label="Clear filters"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/><path d="M3 3l18 18"/></svg></button>
     </div>
     <div class="tbl-wrap">
@@ -1497,7 +1500,9 @@ function syncAblButton() { ablBtn.classList.toggle('active', filterAbl); ablBtn.
 ablBtn.addEventListener('click', () => { filterAbl = !filterAbl; syncAblButton(); buildBody(); });
 let shownCount = 0;
 const filterBarEl = document.getElementById('filter-bar'), filterToggleBtn = document.getElementById('filter-toggle');
-filterToggleBtn.addEventListener('click', () => { const o = filterBarEl.classList.toggle('open'); filterToggleBtn.setAttribute('aria-expanded', String(o)); });
+const setFilterOpen = o => { filterBarEl.classList.toggle('open', o); filterToggleBtn.setAttribute('aria-expanded', String(o)); };
+filterToggleBtn.addEventListener('click', () => setFilterOpen(!filterBarEl.classList.contains('open')));
+document.getElementById('filter-done').addEventListener('click', () => { setFilterOpen(false); filterBarEl.scrollIntoView({ block: 'start' }); });
 function syncClearButton() {
   clearBtn.disabled = !filtersActive();
   const n = (filterMode !== 'all') + (filterType !== 'all') + (filterAttn !== 'all') + filterCaps.size + (filterAbl ? 1 : 0);
@@ -1505,6 +1510,7 @@ function syncClearButton() {
   badge.hidden = !n; badge.textContent = n;
   filterToggleBtn.classList.toggle('active', n > 0);
   document.getElementById('filter-count').textContent = `${shownCount} of ${models.length} models`;
+  document.getElementById('filter-done').textContent = `Show ${shownCount} ${shownCount === 1 ? 'model' : 'models'}`;
 }
 clearBtn.addEventListener('click', () => {
   filterMode = 'all'; filterType = 'all'; filterAttn = 'all'; filterCaps = new Set(); filterAbl = false;
