@@ -1346,7 +1346,7 @@ function buildBody() {
     }
     if (av < bv) return -1; if (av > bv) return 1; return 0;
   };
-  // phones: an empty value (a dash) sorts as infinity, so it lands at the bottom of an ascending sort
+  // an empty value (a dash) sorts as infinity, so it lands at the bottom of an ascending sort
   const colIsNull = m => {
     switch (col.key) {
       case 'params': case 'contextK': return isNaN(parseFloat(m[col.key]));
@@ -1354,7 +1354,7 @@ function buildBody() {
     }
     return col.key.startsWith('q_') && !m.quality[col.key.slice(2)]?.grade;
   };
-  const sortVal = m => (mt2() && colIsNull(m)) ? Infinity : col.sv(m);
+  const sortVal = m => colIsNull(m) ? Infinity : col.sv(m);
   rows.sort((a, b) => sortDir * cmpVals(sortVal(a), sortVal(b)));
   const tbody = document.getElementById('tbl-body');
   tbody.innerHTML = '';
