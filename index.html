@@ -107,7 +107,7 @@ h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14
 .deleted-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; background: rgba(240,136,62,.15); color: var(--orange); }
 tr.row-deleted td { opacity: .72; }
 .abl-tag { display: none; }
-/* Phones: compact rows (two lines per model, tap one for the rest) with a sort picker. ?toggle=Table2 swaps in the pinned-name table, ?toggle=ClassicTable the original. */
+/* Phones: compact rows (two lines per model, tap one for the rest) with a sort picker. ?table=2 swaps in the pinned-name table, ?table=1 the original. */
 .t3-sort, .t3-rows { display: none; }
 .t3-on .tbl-wrap { display: none; }
 .t3-on .t3-sort { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
@@ -136,7 +136,7 @@ tr.row-deleted td { opacity: .72; }
 .r3-det .wide { grid-column: 1 / -1; }
 .r3-det .ram-wrap { display: inline-flex; vertical-align: middle; margin-left: 6px; min-width: 190px; }
 /* Phones: the model table keeps one pinned name column (it narrows as the table scrolls sideways and can be widened by swiping right at
-   the left edge), short grade headings in one narrow width, short names with ABL / DEL tags. ?toggle=ClassicTable turns it off. */
+   the left edge), short grade headings in one narrow width, short names with ABL / DEL tags. ?table=1 turns it off. */
 @media (max-width: 600px) {
   .tbl-wrap.mt2 #tbl { width: max-content; min-width: 100%; }
   .tbl-wrap.mt2 thead th, .tbl-wrap.mt2 td { padding: 8px; }
@@ -999,14 +999,6 @@ const TOGGLES = {
       buildHeader(); buildBody();
     },
   },
-  Table2: {
-    desc: 'Phones: shows the pinned-name model table instead of the compact rows.',
-    // read when the table is built
-  },
-  ClassicTable: {
-    desc: 'Phones: turns off the compact rows (and the pinned-name table) and shows the original table layout.',
-    // read when the table is built
-  },
   CardsLayout: {
     desc: 'Phones: swaps the top stat cards between the single list card and two-column tiles (an odd number of cards uses the list, an even number the tiles).',
     // read while the stat cards are built
@@ -1040,6 +1032,18 @@ const PAGE_TOGGLES = (function () {
   writeToggles(on);
   url.searchParams.delete('toggle'); history.replaceState(null, '', url);
   return on;
+})();
+// Phone table style, chosen through the address like the toggles: ?table=1 (the original table), ?table=2 (pinned name column) or
+// ?table=3 (compact expandable rows, the default). Remembered in this browser; the parameter is removed once it has run.
+const TABLE_STYLE = (function () {
+  const KEY = 'page-table', url = new URL(location.href), asked = url.searchParams.get('table');
+  let v = 3;
+  try { v = +localStorage.getItem(KEY) || 3; } catch (e) { }
+  if (asked !== null) {
+    if (['1', '2', '3'].includes(asked.trim())) { v = +asked; try { localStorage.setItem(KEY, String(v)); } catch (e) { } }
+    url.searchParams.delete('table'); history.replaceState(null, '', url);
+  }
+  return [1, 2, 3].includes(v) ? v : 3;
 })();
 const SHOW_DELETED = PAGE_TOGGLES.includes('DeletedModels');
 function withoutDeleted(d) {
@@ -1342,8 +1346,8 @@ const cols = [
 ];
 
 const PHONE_MQ = window.matchMedia('(max-width: 600px)');
-const mt2 = () => PHONE_MQ.matches && PAGE_TOGGLES.includes('Table2') && !PAGE_TOGGLES.includes('ClassicTable');   // the pinned-name phone table (Table2 toggle)
-const mt3 = () => PHONE_MQ.matches && !PAGE_TOGGLES.includes('Table2') && !PAGE_TOGGLES.includes('ClassicTable');   // the compact phone rows (default on phones)
+const mt2 = () => PHONE_MQ.matches && TABLE_STYLE === 2;   // the pinned-name phone table (?table=2)
+const mt3 = () => PHONE_MQ.matches && TABLE_STYLE === 3;   // the compact phone rows (?table=3, the default)
 const SHORT_TASK = { 'Proj Orch': 'Orch', 'Grmr': 'Gram' };
 let tblAfterBuild = () => {};
 function buildHeader() {
@@ -1623,7 +1627,7 @@ clearBtn.addEventListener('click', () => {
 
 // Phone table: pinned name column that narrows while the table scrolls sideways, and widens by swiping right at the left edge
 const tblWrap = document.querySelector('.tbl-wrap');
-tblWrap.classList.toggle('mt2', PAGE_TOGGLES.includes('Table2') && !PAGE_TOGGLES.includes('ClassicTable'));
+tblWrap.classList.toggle('mt2', TABLE_STYLE === 2);
 let nameExtra = 0, nameMaxExtra = 0, tblDrag = null;
 const tblClamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 function tblApplyW() {
