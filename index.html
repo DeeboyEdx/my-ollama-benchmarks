@@ -905,7 +905,7 @@ const TOGGLES = {
     on: async () => {
       await new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'added.js'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
       if (typeof MODEL_ADDED === 'undefined') return;
-      cols.splice(1, 0, { key: 'added', label: 'Added', sv: m => MODEL_ADDED[m.name] ?? '', td: m => mkEl('td', { txt: MODEL_ADDED[m.name] ?? '—' }) });
+      cols.splice(1, 0, { key: 'added', label: 'Added', sv: m => MODEL_ADDED[m.name] ?? '', td: m => { const d = MODEL_ADDED[m.name], p = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ''); return p ? mkEl('td', { txt: (+p[2]) + '/' + (+p[3]), title: new Date(+p[1], +p[2] - 1, +p[3]).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) }) : mkEl('td', { txt: d ?? '—' }); } });
       buildHeader(); buildBody();
     },
   },
