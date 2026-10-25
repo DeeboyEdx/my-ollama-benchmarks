@@ -47,6 +47,19 @@ h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14
 .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
 .stat-value { font-size: 22px; font-weight: 700; color: var(--heading); margin-top: 4px; }
 .stat-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Phones: up to 5 cards -> one list card (label left, value right, detail beside it); more than 5 -> two-column tiles (odd last card full width).
+   The CardsLayout toggle flips whichever one was picked. */
+@media (max-width: 600px) {
+  .stats-row.cards-list { display: block; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .stats-row.cards-list .stat-card { display: flex; align-items: baseline; gap: 10px; border: 0; border-top: 1px solid var(--border); border-radius: 0; padding: 9px 12px; }
+  .stats-row.cards-list .stat-card:first-child { border-top: 0; }
+  .stats-row.cards-list .stat-label { flex: 1; font-size: 13px; text-transform: none; letter-spacing: 0; }
+  .stats-row.cards-list .stat-value { font-size: 16px; margin: 0; }
+  .stats-row.cards-list .stat-sub   { margin: 0; min-width: 84px; max-width: 45%; text-align: right; }
+  .stats-row.cards-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stats-row.cards-grid .stat-card { padding: 10px 12px; min-width: 0; }
+  .stats-row.cards-grid .stat-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
 
 /* ── Filter bar ──────────────────────────────────────────────── */
 .filter-bar  { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -69,6 +82,24 @@ h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14
 .filter-clear { position: absolute; top: 0; right: 0; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 28px; padding: 0; background: var(--surface); border: 1px solid var(--border); color: var(--muted); border-radius: 6px; cursor: pointer; transition: all .15s; }
 .filter-clear:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); }
 .filter-clear:disabled { opacity: .45; cursor: default; }
+.filter-toggle, .filter-count { display: none; }
+@media (max-width: 600px) {
+  /* Phones: a "Filters" button (with the number of active filters); the controls open in a panel under it */
+  .filter-bar { gap: 8px; padding-right: 38px; min-height: 40px; }
+  .filter-toggle { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+  .filter-toggle.active, .filter-bar.open .filter-toggle { background: rgba(56,139,253,.12); border-color: var(--blue); color: var(--blue); }
+  .filter-toggle .badge[hidden] { display: none; }
+  .filter-toggle .badge { background: var(--blue); color: #fff; border-radius: 10px; font-size: 11px; font-weight: 700; padding: 0 7px; }
+  .filter-count { display: inline; color: var(--muted); font-size: 12.5px; }
+  .filter-clear { width: 36px; height: 36px; }
+  .filter-bar > .filter-group { display: none; }
+  .filter-bar.open > .filter-group { display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; }
+  .filter-bar.open { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 46px 12px 10px; }
+  .filter-bar.open > .filter-group .filter-label { padding-top: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; }
+  .filter-bar.open > .filter-group .filter-select { width: 100%; padding: 8px 10px; font-size: 14px; }
+  .filter-bar.open .filter-btn-cap, .filter-bar.open .filter-btn-type { padding: 7px 12px; }
+  .filter-bar.open .filter-btn-type { align-self: flex-start; }
+}
 
 /* ── Deleted models (listed only while the toggle is on) ────── */
 .deleted-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; background: rgba(240,136,62,.15); color: var(--orange); }
@@ -579,7 +610,9 @@ tr.model-highlight.spotlight td { animation: benchSpotlightFlash 3.2s ease-in-ou
 
   <div id="page-benchmarks">
     <h2>Model Comparison</h2>
-    <div class="filter-bar">
+    <div class="filter-bar" id="filter-bar">
+      <button type="button" class="filter-toggle" id="filter-toggle" aria-expanded="false">Filters<span class="badge" id="filter-badge" hidden></span></button>
+      <span class="filter-count" id="filter-count"></span>
       <span class="filter-group">
         <span class="filter-label">Show:</span>
         <select id="filter-show" class="filter-select">
@@ -909,6 +942,10 @@ const TOGGLES = {
       buildHeader(); buildBody();
     },
   },
+  CardsLayout: {
+    desc: 'Phones: swaps the top stat cards between the single list card and two-column tiles (the list is used up to 5 cards, tiles beyond that).',
+    // read while the stat cards are built
+  },
   DeletedModels: {
     desc: 'Shows models removed from this machine (results kept on record), tagged "deleted". Also flipped by clicking the model count in the header.',
     // applied while the data is prepared (below), not afterwards
@@ -1136,13 +1173,16 @@ const fastest  = [...models].filter(m => m.genSpeedTps != null).sort((a,b) => b.
 const topQual  = [...models].filter(m => m.avgQualityScore != null).sort((a,b) => b.avgQualityScore - a.avgQualityScore)[0];
 
 const statsRow = document.getElementById('stats-row');
-[
+const statCards = [
   { label: 'Models Tested', value: models.length,                               sub: `${fitCount} fit in VRAM` },
   { label: 'VRAM Limit',    value: `${V} GB`,                                   sub: meta.gpuName },
   { label: 'Benchmark Runs', value: meta.benchmarkFiles.length,                 sub: 'full test batteries' },
   { label: 'Fastest Gen',   value: fastest  ? `${fastest.genSpeedTps} T/s` : '—', sub: fastest ? delText(fastest.name) : '' },
   { label: 'Best Quality',  value: topQual  ? `${topQual.avgQualityScore}/5` : '—', sub: topQual ? delText(topQual.name) : '' },
-].forEach(s => {
+];
+// phones: up to 5 cards read best as one list; beyond that, two-column tiles (the CardsLayout toggle flips the pick)
+statsRow.classList.add((statCards.length > 5) !== PAGE_TOGGLES.includes('CardsLayout') ? 'cards-grid' : 'cards-list');
+statCards.forEach(s => {
   const card = mkEl('div', { cls: 'stat-card' });
   card.append(
     mkEl('div', { cls: 'stat-label', txt: s.label }),
@@ -1282,6 +1322,7 @@ function buildBody() {
     cols.forEach(c => tr.appendChild(c.td(m)));
     tbody.appendChild(tr);
   });
+  shownCount = rows.length;
   syncClearButton();
   applyModelHighlight();
 }
@@ -1408,7 +1449,17 @@ function filtersActive() { return filterMode !== 'all' || filterType !== 'all' |
 const ablBtn = document.getElementById('filter-abl');
 function syncAblButton() { ablBtn.classList.toggle('active', filterAbl); ablBtn.setAttribute('aria-pressed', String(filterAbl)); }
 ablBtn.addEventListener('click', () => { filterAbl = !filterAbl; syncAblButton(); buildBody(); });
-function syncClearButton() { clearBtn.disabled = !filtersActive(); }
+let shownCount = 0;
+const filterBarEl = document.getElementById('filter-bar'), filterToggleBtn = document.getElementById('filter-toggle');
+filterToggleBtn.addEventListener('click', () => { const o = filterBarEl.classList.toggle('open'); filterToggleBtn.setAttribute('aria-expanded', String(o)); });
+function syncClearButton() {
+  clearBtn.disabled = !filtersActive();
+  const n = (filterMode !== 'all') + (filterType !== 'all') + (filterAttn !== 'all') + filterCaps.size + (filterAbl ? 1 : 0);
+  const badge = document.getElementById('filter-badge');
+  badge.hidden = !n; badge.textContent = n;
+  filterToggleBtn.classList.toggle('active', n > 0);
+  document.getElementById('filter-count').textContent = `${shownCount} of ${models.length} models`;
+}
 clearBtn.addEventListener('click', () => {
   filterMode = 'all'; filterType = 'all'; filterAttn = 'all'; filterCaps = new Set(); filterAbl = false;
   syncAblButton(); syncShowSelect(); syncTypeButtons(); syncAttnSelect(); syncCapButtons();
