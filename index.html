@@ -104,6 +104,30 @@ h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14
 /* ── Deleted models (listed only while the toggle is on) ────── */
 .deleted-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; background: rgba(240,136,62,.15); color: var(--orange); }
 tr.row-deleted td { opacity: .72; }
+.abl-tag { display: none; }
+/* Phones: the model table keeps one pinned name column (it narrows as the table scrolls sideways and can be widened by swiping right at
+   the left edge), short grade headings in one narrow width, short names with ABL / DEL tags. ?toggle=ClassicTable turns it off. */
+@media (max-width: 600px) {
+  .tbl-wrap.mt2 #tbl { width: max-content; min-width: 100%; }
+  .tbl-wrap.mt2 thead th, .tbl-wrap.mt2 td { padding: 8px; }
+  .tbl-wrap.mt2 .mn-full, .tbl-wrap.mt2 .mn-sq { display: none; }
+  .tbl-wrap.mt2.squeezed .mn-ph { display: none; }
+  .tbl-wrap.mt2.squeezed .mn-sq { display: inline; font-size: 12px; }
+  .tbl-wrap.mt2 th:first-child, .tbl-wrap.mt2 td:first-child {
+    position: sticky; left: 0; width: var(--nw, 150px); min-width: var(--nw, 150px); max-width: var(--nw, 150px);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--bg); z-index: 1; border-right: 1px solid var(--border);
+  }
+  .tbl-wrap.mt2 thead th:first-child { z-index: 3; background: var(--surface); }
+  .tbl-wrap.mt2 th.gc, .tbl-wrap.mt2 td.gc { width: 44px; min-width: 44px; max-width: 44px; padding-left: 0; padding-right: 0; text-align: center; }
+  .tbl-wrap.mt2 th.gc { font-size: 11px; }
+  .tbl-wrap.mt2 .abl-tag { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; background: rgba(56,139,253,.15); color: var(--blue); }
+  .tbl-wrap.mt2 .deleted-tag { font-size: 0; padding: 1px 6px; }
+  .tbl-wrap.mt2 .deleted-tag::after { content: 'DEL'; font-size: 10px; }
+  .tbl-wrap.mt2.squeezed .abl-tag, .tbl-wrap.mt2.squeezed .deleted-tag { display: none; }
+  /* the pinned cell must stay opaque, so the faded look of deleted models goes on its contents */
+  .tbl-wrap.mt2 tr.row-deleted td:first-child { opacity: 1; }
+  .tbl-wrap.mt2 tr.row-deleted td:first-child .model-name { opacity: .72; }
+}
 
 /* ── Hermes tab ─────────────────────────────────────────────── */
 .hm-intro { font-size: 13px; color: var(--muted); margin: 0 0 16px; max-width: 80ch; }
@@ -942,6 +966,10 @@ const TOGGLES = {
       buildHeader(); buildBody();
     },
   },
+  ClassicTable: {
+    desc: 'Phones: turns off the pinned-name model table and shows the original table layout.',
+    // read when the table is built
+  },
   CardsLayout: {
     desc: 'Phones: swaps the top stat cards between the single list card and two-column tiles (an odd number of cards uses the list, an even number the tiles).',
     // read while the stat cards are built
@@ -1194,6 +1222,7 @@ statCards.forEach(s => {
 // ── Model table ───────────────────────────────────────────────────────────────
 let sortKey = 'avgTtoS', sortDir = 1, filterMode = 'all', filterType = 'all', filterAttn = 'all', filterCaps = new Set(), filterAbl = false;
 const isAbliterated = name => /abliterated/i.test(name);   // name rule, so future abliterated models are picked up
+const phoneName = name => name.replace(/^[^/]+\//, '').replace(/-abliterated/i, '');   // phones: no publisher prefix, ABL becomes a tag
 
 const taskColors = {
   Smoke:       '#388bfd',
@@ -1221,7 +1250,7 @@ function ramBarTd(m) {
 }
 
 function gradeTd(m, task) {
-  const td = mkEl('td', { style: { textAlign: 'center' } });
+  const td = mkEl('td', { cls: 'gc', style: { textAlign: 'center' } });
   const q   = m.quality[task];
   if (!q?.grade) { td.textContent = '—'; td.style.color = 'var(--muted)'; return td; }
   const badge = mkEl('span', { cls: `grade g-${q.grade}`, txt: q.grade });
@@ -1242,7 +1271,8 @@ const cols = [
   { key: 'name',        label: 'Model',           sv: m => [m.name.split(':')[0], (m.sizeGB ?? 0), m.name],
     td: m => {
       const td = mkEl('td');
-      const span = mkEl('span', { cls: 'model-name', txt: m.name });
+      const span = mkEl('span', { cls: 'model-name' });
+      span.append(mkEl('span', { cls: 'mn-full', txt: m.name }), mkEl('span', { cls: 'mn-ph', txt: phoneName(m.name) }), mkEl('span', { cls: 'mn-sq', txt: phoneName(m.name).split(':')[0].slice(0, 9) }));
       span.style.cursor = 'pointer';
       span.title = 'Click to filter by this model’s Architecture + Attention + Abilities';
       span.addEventListener('mouseenter', e => showTipHTML(bioHTML(m.name), e));
@@ -1250,6 +1280,7 @@ const cols = [
       span.addEventListener('mouseleave', hideTip);
       span.addEventListener('click', () => applyModelProfile(m));
       td.appendChild(span);
+      if (isAbliterated(m.name)) td.appendChild(mkEl('span', { cls: 'abl-tag', txt: 'abl', title: 'Abliterated (safety refusals removed)' }));
       if (m.deleted) td.appendChild(mkEl('span', { cls: 'deleted-tag', txt: 'deleted', title: 'No longer installed; results kept on record' }));
       return td;
     } },
@@ -1273,11 +1304,17 @@ const cols = [
     td: m => { const td = mkEl('td'); td.appendChild(mkEl('span', { cls: m.fitsInVram ? 'feas feas-fit' : 'feas feas-over', txt: m.fitsInVram ? '✅ Fit' : '⚠️ Offload' })); return td; } },
 ];
 
+const PHONE_MQ = window.matchMedia('(max-width: 600px)');
+const mt2 = () => PHONE_MQ.matches && !PAGE_TOGGLES.includes('ClassicTable');   // the phone table layout (see the CSS above)
+const SHORT_TASK = { 'Proj Orch': 'Orch', 'Grmr': 'Gram' };
+let tblAfterBuild = () => {};
 function buildHeader() {
   const tr = document.getElementById('tbl-head');
   tr.innerHTML = '';
   cols.forEach(col => {
-    const th = mkEl('th', { txt: col.label });
+    const isQ = col.key.startsWith('q_');
+    const th = mkEl('th', { txt: isQ && mt2() ? (SHORT_TASK[col.label] ?? col.label) : col.label });
+    if (isQ) { th.className = 'gc'; th.title = col.label; }
     if (col.key === sortKey) th.dataset.sort = sortDir === 1 ? 'asc' : 'desc';
     th.addEventListener('click', () => {
       if (sortKey === col.key) sortDir *= -1; else { sortKey = col.key; sortDir = 1; }
@@ -1309,7 +1346,16 @@ function buildBody() {
     }
     if (av < bv) return -1; if (av > bv) return 1; return 0;
   };
-  rows.sort((a, b) => sortDir * cmpVals(col.sv(a), col.sv(b)));
+  // phones: an empty value (a dash) sorts as infinity, so it lands at the bottom of an ascending sort
+  const colIsNull = m => {
+    switch (col.key) {
+      case 'params': case 'contextK': return isNaN(parseFloat(m[col.key]));
+      case 'sizeGB': case 'ramMaxGB': case 'genSpeedTps': case 'avgTtoS': return m[col.key] == null;
+    }
+    return col.key.startsWith('q_') && !m.quality[col.key.slice(2)]?.grade;
+  };
+  const sortVal = m => (mt2() && colIsNull(m)) ? Infinity : col.sv(m);
+  rows.sort((a, b) => sortDir * cmpVals(sortVal(a), sortVal(b)));
   const tbody = document.getElementById('tbl-body');
   tbody.innerHTML = '';
   rows.forEach((m, i) => {
@@ -1322,6 +1368,7 @@ function buildBody() {
     tbody.appendChild(tr);
   });
   shownCount = rows.length;
+  tblAfterBuild();
   syncClearButton();
   applyModelHighlight();
 }
@@ -1466,6 +1513,46 @@ clearBtn.addEventListener('click', () => {
   buildBody();
 });
 // the other filters ('Show', Architecture, Attention) already rebuild the body, which refreshes the button
+
+// Phone table: pinned name column that narrows while the table scrolls sideways, and widens by swiping right at the left edge
+const tblWrap = document.querySelector('.tbl-wrap');
+tblWrap.classList.toggle('mt2', !PAGE_TOGGLES.includes('ClassicTable'));
+let nameExtra = 0, nameMaxExtra = 0, tblDrag = null;
+const tblClamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+function tblApplyW() {
+  if (!mt2()) { tblWrap.style.removeProperty('--nw'); tblWrap.classList.remove('squeezed'); return; }
+  const p = tblClamp((tblWrap.scrollLeft - 24) / 50, 0, 1), base = 150 + nameExtra;   // squeeze starts at 24px of scrolling, done 50px later
+  tblWrap.style.setProperty('--nw', (base - (base - 78) * p).toFixed(1) + 'px');
+  tblWrap.classList.toggle('squeezed', p >= .7);
+}
+// widest the name column may get: the visible width or the longest name (with its tags), whichever is smaller
+function tblMeasure() {
+  if (!mt2()) { tblApplyW(); return; }
+  const prev = tblWrap.style.getPropertyValue('--nw');
+  tblWrap.style.setProperty('--nw', 'max-content'); tblWrap.classList.remove('squeezed');
+  const longest = Math.max(0, ...[...tblWrap.querySelectorAll('tbody td:first-child')].map(td => td.getBoundingClientRect().width));
+  tblWrap.style.setProperty('--nw', prev || '150px');
+  nameMaxExtra = Math.max(0, Math.min(tblWrap.clientWidth, Math.ceil(longest)) - 150);
+  nameExtra = Math.min(nameExtra, nameMaxExtra);
+  tblApplyW();
+}
+tblAfterBuild = tblMeasure;
+tblWrap.addEventListener('scroll', tblApplyW, { passive: true });
+// the direction is decided once, from the first few pixels: a vertical gesture is left alone, a horizontal one is taken over only while the width can still change
+const tblStart = (x, y) => { if (mt2()) tblDrag = { x, y, e: nameExtra, axis: null }; };
+const tblMove = (x, y, ev) => {
+  if (!tblDrag) return;
+  const dx = x - tblDrag.x, dy = y - tblDrag.y;
+  if (!tblDrag.axis) { if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; tblDrag.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; }
+  if (tblDrag.axis === 'y') return;
+  if (!((tblWrap.scrollLeft <= 0 && dx > 0 && nameExtra < nameMaxExtra) || (nameExtra > 0 && dx < 0))) return;
+  nameExtra = tblClamp(tblDrag.e + dx, 0, nameMaxExtra); tblApplyW();
+  if (ev.cancelable) ev.preventDefault();
+};
+tblWrap.addEventListener('touchstart', e => tblStart(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+tblWrap.addEventListener('touchmove',  e => tblMove(e.touches[0].clientX, e.touches[0].clientY, e), { passive: false });
+tblWrap.addEventListener('touchend',   () => { tblDrag = null; });
+PHONE_MQ.addEventListener('change', () => { buildHeader(); buildBody(); });
 
 buildHeader(); buildBody();
 
