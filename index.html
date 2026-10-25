@@ -1175,7 +1175,6 @@ const topQual  = [...models].filter(m => m.avgQualityScore != null).sort((a,b) =
 const statsRow = document.getElementById('stats-row');
 const statCards = [
   { label: 'Models Tested', value: models.length,                               sub: `${fitCount} fit in VRAM` },
-  { label: 'VRAM Limit',    value: `${V} GB`,                                   sub: meta.gpuName },
   { label: 'Benchmark Runs', value: meta.benchmarkFiles.length,                 sub: 'full test batteries' },
   { label: 'Fastest Gen',   value: fastest  ? `${fastest.genSpeedTps} T/s` : '—', sub: fastest ? delText(fastest.name) : '' },
   { label: 'Best Quality',  value: topQual  ? `${topQual.avgQualityScore}/5` : '—', sub: topQual ? delText(topQual.name) : '' },
