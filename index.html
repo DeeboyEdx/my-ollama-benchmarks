@@ -47,7 +47,7 @@ h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14
 .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
 .stat-value { font-size: 22px; font-weight: 700; color: var(--heading); margin-top: 4px; }
 .stat-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Phones: up to 5 cards -> one list card (label left, value right, detail beside it); more than 5 -> two-column tiles (odd last card full width).
+/* Phones: an odd number of cards -> one list card (label left, value right, detail beside it); an even number -> two-column tiles.
    The CardsLayout toggle flips whichever one was picked. */
 @media (max-width: 600px) {
   .stats-row.cards-list { display: block; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
@@ -943,7 +943,7 @@ const TOGGLES = {
     },
   },
   CardsLayout: {
-    desc: 'Phones: swaps the top stat cards between the single list card and two-column tiles (the list is used up to 5 cards, tiles beyond that).',
+    desc: 'Phones: swaps the top stat cards between the single list card and two-column tiles (an odd number of cards uses the list, an even number the tiles).',
     // read while the stat cards are built
   },
   DeletedModels: {
@@ -1179,8 +1179,8 @@ const statCards = [
   { label: 'Fastest Gen',   value: fastest  ? `${fastest.genSpeedTps} T/s` : '—', sub: fastest ? delText(fastest.name) : '' },
   { label: 'Best Quality',  value: topQual  ? `${topQual.avgQualityScore}/5` : '—', sub: topQual ? delText(topQual.name) : '' },
 ];
-// phones: up to 5 cards read best as one list; beyond that, two-column tiles (the CardsLayout toggle flips the pick)
-statsRow.classList.add((statCards.length > 5) !== PAGE_TOGGLES.includes('CardsLayout') ? 'cards-grid' : 'cards-list');
+// phones: an odd number of cards reads best as one list, an even number as two-column tiles (the CardsLayout toggle flips the pick)
+statsRow.classList.add((statCards.length % 2 === 0) !== PAGE_TOGGLES.includes('CardsLayout') ? 'cards-grid' : 'cards-list');
 statCards.forEach(s => {
   const card = mkEl('div', { cls: 'stat-card' });
   card.append(
