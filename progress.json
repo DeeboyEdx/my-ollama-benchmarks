@@ -1,16 +1,16 @@
 {
-  "updated": "2026-10-26T01:42:56-04:00",
+  "updated": "2026-10-26T01:52:29-04:00",
   "active": true,
   "started": "2026-10-26T00:25:09-04:00",
-  "battery_eta": "2026-10-26T04:03:53-04:00",
+  "battery_eta": "2026-10-26T04:05:05-04:00",
   "models": [
     {
       "name": "richardyoung/qwen3.6-27b-abliterated:IQ3_M",
-      "step": "Context sweep",
+      "step": "Matrix sweep, cell 1/128",
       "running": true,
       "size_gb": 12.0,
       "next_zone": null,
-      "eta": "2026-10-26T04:03:53-04:00",
+      "eta": "2026-10-26T04:05:05-04:00",
       "zones": [
         {
           "id": "speed",
@@ -44,10 +44,9 @@
           "label": "Context sweep",
           "color": "#f0883e",
           "expected_min": 6.8,
-          "done": 0.3,
+          "done": 100.0,
           "total": 100,
-          "est": true,
-          "started": "2026-10-26T01:42:54-04:00"
+          "est": false
         },
         {
           "id": "matrix",
@@ -56,7 +55,8 @@
           "expected_min": 98.3,
           "done": 0.0,
           "total": 100,
-          "est": false
+          "est": false,
+          "started": "2026-10-26T01:52:27-04:00"
         }
       ]
     }
