@@ -1,26 +1,25 @@
 {
-  "updated": "2026-10-26T00:25:17-04:00",
+  "updated": "2026-10-26T00:47:55-04:00",
   "active": true,
   "started": "2026-10-26T00:25:09-04:00",
-  "battery_eta": "2026-10-26T03:08:26-04:00",
+  "battery_eta": "2026-10-26T03:53:56-04:00",
   "models": [
     {
       "name": "richardyoung/qwen3.6-27b-abliterated:IQ3_M",
-      "step": "LarHope gen-speed",
+      "step": "TTO + Grading",
       "running": true,
       "size_gb": 12.0,
       "next_zone": null,
-      "eta": "2026-10-26T03:08:26-04:00",
+      "eta": "2026-10-26T03:53:56-04:00",
       "zones": [
         {
           "id": "speed",
           "label": "Speed",
           "color": "#3fb950",
           "expected_min": 11.6,
-          "done": 0.5,
+          "done": 100.0,
           "total": 100,
-          "est": true,
-          "started": "2026-10-26T00:25:12-04:00"
+          "est": false
         },
         {
           "id": "tto",
@@ -29,7 +28,8 @@
           "expected_min": 16.3,
           "done": 0.0,
           "total": 100,
-          "est": false
+          "est": false,
+          "started": "2026-10-26T00:47:53-04:00"
         },
         {
           "id": "gpu",
