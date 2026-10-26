@@ -1,4 +1,4 @@
-generated: 2026-10-25 17:51
+generated: 2026-10-26 09:40
 gpu: NVIDIA GeForce RTX 4060 Ti
 vram_gb: 16
 notes:
@@ -323,5 +323,21 @@ models:
       num_gpu: 33
       num_ctx: 261888
       tps: 39.48
+      source: ctx-sweep
+  richardyoung/qwen3.6-27b-abliterated:IQ3_M:
+    gpu_sweep:
+      num_gpu: 65
+      num_ctx: 262144
+      tps: 19.5
+      max_layers: 65
+    ctx_sweep:
+      num_ctx: 59904
+      tps: 19.25
+      default_ctx: 262144
+      bounded_by: cap
+    matrix_surface:
+      num_gpu: 65
+      num_ctx: 59904
+      tps: 19.25
       source: ctx-sweep
 

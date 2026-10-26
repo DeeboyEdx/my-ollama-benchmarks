@@ -107,6 +107,7 @@ h2 { font-size: 17px; font-weight: 600; color: var(--heading); margin-bottom: 14
 .deleted-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; background: rgba(240,136,62,.15); color: var(--orange); }
 tr.row-deleted td { opacity: .72; }
 .abl-tag { display: none; }
+.mn-ph, .mn-sq { display: none; }   /* the short names are for the phone tables only */
 /* Phones: compact rows (two lines per model, tap one for the rest) with a sort picker. ?table=2 swaps in the pinned-name table, ?table=1 the original. */
 .t3-sort, .t3-rows { display: none; }
 .t3-on .tbl-wrap { display: none; }
@@ -141,6 +142,7 @@ tr.row-deleted td { opacity: .72; }
   .tbl-wrap.mt2 #tbl { width: max-content; min-width: 100%; }
   .tbl-wrap.mt2 thead th, .tbl-wrap.mt2 td { padding: 8px; }
   .tbl-wrap.mt2 .mn-full, .tbl-wrap.mt2 .mn-sq { display: none; }
+  .tbl-wrap.mt2 .mn-ph { display: inline; }
   .tbl-wrap.mt2.squeezed .mn-ph { display: none; }
   .tbl-wrap.mt2.squeezed .mn-sq { display: inline; font-size: 12px; }
   .tbl-wrap.mt2 th:first-child, .tbl-wrap.mt2 td:first-child {
@@ -1639,10 +1641,9 @@ function tblApplyW() {
 // widest the name column may get: the visible width or the longest name (with its tags), whichever is smaller
 function tblMeasure() {
   if (!mt2()) { tblApplyW(); return; }
-  const prev = tblWrap.style.getPropertyValue('--nw');
-  tblWrap.style.setProperty('--nw', 'max-content'); tblWrap.classList.remove('squeezed');
-  const longest = Math.max(0, ...[...tblWrap.querySelectorAll('tbody td:first-child')].map(td => td.getBoundingClientRect().width));
-  tblWrap.style.setProperty('--nw', prev || '150px');
+  // each cell's full content width (scrollWidth still counts text the cell is cutting off), with the short names showing
+  tblWrap.classList.remove('squeezed');
+  const longest = Math.max(0, ...[...tblWrap.querySelectorAll('tbody td:first-child')].map(td => td.scrollWidth + parseFloat(getComputedStyle(td).paddingRight)));
   nameMaxExtra = Math.max(0, Math.min(tblWrap.clientWidth, Math.ceil(longest)) - 150);
   nameExtra = Math.min(nameExtra, nameMaxExtra);
   tblApplyW();
