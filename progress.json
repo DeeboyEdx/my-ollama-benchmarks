@@ -1,25 +1,26 @@
 {
-  "updated": "2026-10-26T00:25:12-04:00",
+  "updated": "2026-10-26T00:25:17-04:00",
   "active": true,
   "started": "2026-10-26T00:25:09-04:00",
-  "battery_eta": "2026-10-26T03:08:12-04:00",
+  "battery_eta": "2026-10-26T03:08:26-04:00",
   "models": [
     {
       "name": "richardyoung/qwen3.6-27b-abliterated:IQ3_M",
-      "step": "starting",
+      "step": "LarHope gen-speed",
       "running": true,
       "size_gb": 12.0,
       "next_zone": null,
-      "eta": "2026-10-26T03:08:12-04:00",
+      "eta": "2026-10-26T03:08:26-04:00",
       "zones": [
         {
           "id": "speed",
           "label": "Speed",
           "color": "#3fb950",
           "expected_min": 11.6,
-          "done": 0.0,
+          "done": 0.5,
           "total": 100,
-          "est": false
+          "est": true,
+          "started": "2026-10-26T00:25:12-04:00"
         },
         {
           "id": "tto",
