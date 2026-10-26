@@ -1,16 +1,16 @@
 {
-  "updated": "2026-10-26T00:59:30-04:00",
+  "updated": "2026-10-26T01:42:56-04:00",
   "active": true,
   "started": "2026-10-26T00:25:09-04:00",
-  "battery_eta": "2026-10-26T03:32:16-04:00",
+  "battery_eta": "2026-10-26T04:03:53-04:00",
   "models": [
     {
       "name": "richardyoung/qwen3.6-27b-abliterated:IQ3_M",
-      "step": "GPU layer sweep",
+      "step": "Context sweep",
       "running": true,
       "size_gb": 12.0,
       "next_zone": null,
-      "eta": "2026-10-26T03:32:16-04:00",
+      "eta": "2026-10-26T04:03:53-04:00",
       "zones": [
         {
           "id": "speed",
@@ -35,19 +35,19 @@
           "label": "GPU sweep",
           "color": "#e3b341",
           "expected_min": 30.0,
-          "done": 0.1,
+          "done": 100.0,
           "total": 100,
-          "est": true,
-          "started": "2026-10-26T00:59:28-04:00"
+          "est": false
         },
         {
           "id": "ctx",
           "label": "Context sweep",
           "color": "#f0883e",
           "expected_min": 6.8,
-          "done": 0.0,
+          "done": 0.3,
           "total": 100,
-          "est": false
+          "est": true,
+          "started": "2026-10-26T01:42:54-04:00"
         },
         {
           "id": "matrix",
